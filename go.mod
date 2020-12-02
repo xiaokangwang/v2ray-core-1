@@ -23,5 +23,6 @@ require (
 	golang.org/x/sys v0.0.0-20210525143221-35b2ab0089ea
 	google.golang.org/grpc v1.38.0
 	google.golang.org/protobuf v1.26.0
+	gopkg.in/yaml.v2 v2.4.0
 	h12.io/socks v1.0.2
 )
