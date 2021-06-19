@@ -1,20 +1,19 @@
-package conf_test
+package duration_test
 
 import (
 	"encoding/json"
+	"github.com/v2fly/v2ray-core/v4/infra/conf/cfgcommon/duration"
 	"testing"
 	"time"
-
-	"github.com/v2fly/v2ray-core/v4/infra/conf"
 )
 
 type testWithDuration struct {
-	Duration conf.Duration
+	Duration duration.Duration
 }
 
 func TestDurationJSON(t *testing.T) {
 	expected := &testWithDuration{
-		Duration: conf.Duration(time.Hour),
+		Duration: duration.Duration(time.Hour),
 	}
 	data, err := json.Marshal(expected)
 	if err != nil {
