@@ -13,11 +13,7 @@ downloadAndUnzip() {
 mkdir -p assets
 
 pushd assets
-downloadAndUnzip "$1" "v2ray-linux-32.zip"
-downloadAndUnzip "$1" "v2ray-linux-64.zip"
-downloadAndUnzip "$1" "v2ray-linux-arm32-v6.zip"
-downloadAndUnzip "$1" "v2ray-linux-arm32-v7a.zip"
-downloadAndUnzip "$1" "v2ray-linux-arm64-v8a.zip"
+downloadAndUnzip "$1" "v2ray-linux-$2.zip"
 downloadAndUnzip "$1" "v2ray-extra.zip"
 popd
 
@@ -38,16 +34,10 @@ function generateExtraVersion() {
   placeFile "v2ray-extra" "$2/share" "browserforwarder"
 }
 
-generateStandardVersion "v2ray-linux-32" "linux/386/std"
-generateStandardVersion "v2ray-linux-64" "linux/amd64/std"
-generateStandardVersion "v2ray-linux-arm32-v6" "linux/arm/v6/std"
-generateStandardVersion "v2ray-linux-arm32-v7a" "linux/arm/v7/std"
-generateStandardVersion "v2ray-linux-arm64-v8a" "linux/arm64/std"
-generateStandardVersion "v2ray-linux-arm64-v8a" "linux/arm64/v8/std"
+if [ "$4" = "std" ]; then
+    generateStandardVersion "v2ray-linux-$2" "linux/$3/std"
+fi
 
-generateExtraVersion "v2ray-linux-32" "linux/386/extra"
-generateExtraVersion "v2ray-linux-64" "linux/amd64/extra"
-generateExtraVersion "v2ray-linux-arm32-v6" "linux/arm/v6/extra"
-generateExtraVersion "v2ray-linux-arm32-v7a" "linux/arm/v7/extra"
-generateExtraVersion "v2ray-linux-arm64-v8a" "linux/arm64/extra"
-generateExtraVersion "v2ray-linux-arm64-v8a" "linux/arm64/v8/extra"
+if [ "$4" = "extra" ]; then
+    generateExtraVersion "v2ray-linux-$2" "linux/$3/extra"
+fi
