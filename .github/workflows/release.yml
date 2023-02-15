@@ -266,7 +266,16 @@ jobs:
         arch:
           - v2Name: 32
             containerName: 386
-
+          - v2Name: 64
+            containerName: amd64
+          - v2Name: arm32-v6
+            containerName: arm/v6
+          - v2Name: arm32-v7a
+            containerName: arm/v7
+          - v2Name: arm64-v8a
+            containerName: arm64
+          - v2Name: arm64-v8a
+            containerName: arm64/v8
 
     name: Build And Push image
     runs-on: ubuntu-latest
