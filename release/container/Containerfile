@@ -1,4 +1,4 @@
-FROM docker.io/library/debian@sha256:a546ef4dfa549a4b1a17777b4375c18773963e927f5cda378f2d105a07f1fc15 AS builder
+FROM docker.io/library/golang@sha256:d19ee8512191c8b8e967246d4a7d0de4f4133a30bd9ce982e9b70a0c596dbf18 AS builder
 
 FROM --platform=${TARGETPLATFORM} scratch
 
