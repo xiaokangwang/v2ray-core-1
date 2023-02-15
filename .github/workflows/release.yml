@@ -290,7 +290,7 @@ jobs:
           bash ./release/container/downloadAssets.sh ${{  github.ref_name }} ${{ matrix.arch.v2Name }} ${{ matrix.arch.containerName }} ${{ matrix.variant }}
 
       - name: Kaniko Build and Push
-        uses: aevea/action-kaniko@master
+        uses: xiaokangwang/action-kaniko@master
         with:
           registry: ${{ env.IMAGE_REGISTRY }}
           username: ${{ env.REGISTRY_USER }}
