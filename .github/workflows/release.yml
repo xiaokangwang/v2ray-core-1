@@ -289,12 +289,10 @@ jobs:
         run: |
           bash ./release/container/downloadAssets.sh ${{  github.ref_name }} ${{ matrix.arch.v2Name }} ${{ matrix.arch.containerName }} ${{ matrix.variant }}
 
-      - name: Kaniko Build and Push
-        uses: aevea/action-kaniko@master
+      - name: Buildah Action
+        id: build-image
+        uses: redhat-actions/buildah-build@v2
         with:
-          registry: ${{ env.IMAGE_REGISTRY }}
-          username: ${{ env.REGISTRY_USER }}
-          password: ${{ env.REGISTRY_PASSWORD }}
           image: v2ray
           tags: ${{  github.ref_name }}-${{ matrix.arch.v2Name }}-${{ matrix.variant }}
           containerfiles: |
