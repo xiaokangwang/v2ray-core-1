@@ -290,18 +290,27 @@ jobs:
           bash ./release/container/downloadAssets.sh ${{  github.ref_name }} ${{ matrix.arch.v2Name }} ${{ matrix.arch.containerName }} ${{ matrix.variant }}
 
       - name: Kaniko Build and Push
-        uses: xiaokangwang/action-kaniko@master
+        uses: aevea/action-kaniko@master
         with:
           registry: ${{ env.IMAGE_REGISTRY }}
           username: ${{ env.REGISTRY_USER }}
           password: ${{ env.REGISTRY_PASSWORD }}
           image: v2ray
-          tag: ${{  github.ref_name }}-${{ matrix.arch.v2Name }}-${{ matrix.variant }}
-          build_file: release/container/Containerfile
-          path: context/linux/${{ matrix.arch.containerName }}
-          extra_args: |
-            --reproducible
-            --single-snapshot
-            --build-arg TARGETPLATFORM=${{ matrix.arch.containerName }}
-            --build-arg VARIANT=${{ matrix.variant }}
-            --custom-platform ${{ matrix.arch.containerName }}
+          tags: ${{  github.ref_name }}-${{ matrix.arch.v2Name }}-${{ matrix.variant }}
+          containerfiles: |
+            ./release/container/Containerfile
+          build-args: |
+            TARGETPLATFORM=${{ matrix.arch.containerName }}
+            VARIANT=${{ matrix.variant }}
+          archs: ${{ matrix.arch.containerName }}
+          context: context/linux/${{ matrix.arch.containerName }}
+          extra-args: |
+            --squash
+            --timestamp 0
+
+      - name: Push To ghcr.io
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: ${{ steps.build-image.outputs.image }}
+          tags: ${{ steps.build-image.outputs.tags }}
+          registry: ${{ env.IMAGE_REGISTRY }}
