@@ -301,7 +301,7 @@ jobs:
             TARGETPLATFORM=${{ matrix.arch.containerName }}
             VARIANT=${{ matrix.variant }}
           archs: ${{ matrix.arch.containerName }}
-          context: context/${{ matrix.arch.containerName }}
+          context: context/linux/${{ matrix.arch.containerName }}
           extra-args: |
             --squash
             --timestamp 0
