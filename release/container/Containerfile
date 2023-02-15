@@ -1,4 +1,4 @@
-FROM gcr.io/distroless/static-debian11@sha256:0f29b9f9818cc0371cae6cef4723f0406184547deeb3aee0db831aeea4527605 AS builder
+FROM docker.io/library/debian@sha256:a546ef4dfa549a4b1a17777b4375c18773963e927f5cda378f2d105a07f1fc15 AS builder
 
 FROM --platform=${TARGETPLATFORM} scratch
 
