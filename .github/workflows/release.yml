@@ -296,9 +296,8 @@ jobs:
           username: ${{ env.REGISTRY_USER }}
           password: ${{ env.REGISTRY_PASSWORD }}
           image: v2ray
-          tags: ${{  github.ref_name }}-${{ matrix.arch.v2Name }}-${{ matrix.variant }}
-          build_file: |
-            ./release/container/Containerfile
+          tag: ${{  github.ref_name }}-${{ matrix.arch.v2Name }}-${{ matrix.variant }}
+          build_file: release/container/Containerfile
           path: context/linux/${{ matrix.arch.containerName }}
           extra_args: |
             --reproducible
