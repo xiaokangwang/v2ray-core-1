@@ -274,6 +274,7 @@ jobs:
       REGISTRY_USER: ${{ github.actor }}
       REGISTRY_PASSWORD: ${{ github.token }}
       IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
+      RELEASE_REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@v3
 

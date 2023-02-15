@@ -3,7 +3,7 @@
 set -x -e
 
 download() {
-  curl -L "https://github.com/v2fly/v2ray-core/releases/download/$1/$2" >"$2"
+  curl -L "https://github.com/${RELEASE_REPO}/releases/download/$1/$2" >"$2"
 }
 
 downloadAndUnzip() {
@@ -41,3 +41,5 @@ fi
 if [ "$4" = "extra" ]; then
     generateExtraVersion "v2ray-linux-$2" "linux/$3/extra"
 fi
+
+
