@@ -14,8 +14,7 @@ import "common/protoext/extensions.proto";
 message Congestion{
   string type = 1;
 
-  uint64 up_mbps = 2;
-  uint64 down_mbps = 3;
+  uint64 send_mbps = 2;
 }
 
 message Config {

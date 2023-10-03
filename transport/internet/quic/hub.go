@@ -20,6 +20,7 @@ type Listener struct {
 	listener *quic.Listener
 	done     *done.Instance
 	addConn  internet.ConnHandler
+	config   *Config
 }
 
 func (l *Listener) acceptStreams(conn quic.Connection) {
@@ -62,6 +63,7 @@ func (l *Listener) keepAccepting() {
 			time.Sleep(time.Second)
 			continue
 		}
+		SetCongestion(conn, l.config)
 		go l.acceptStreams(conn)
 	}
 }
@@ -131,6 +133,7 @@ func Listen(ctx context.Context, address net.Address, port net.Port, streamSetti
 		rawConn:  conn,
 		listener: qListener,
 		addConn:  handler,
+		config:   config,
 	}
 
 	go listener.keepAccepting()
