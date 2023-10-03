@@ -187,7 +187,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if needToUpdate(targetedVersion, installedVersion) && false {
+	if needToUpdate(targetedVersion, installedVersion) {
 		fmt.Printf(`
 You are using an old protobuf version, please update to v%s or later.
 Download it from https://github.com/protocolbuffers/protobuf/releases
