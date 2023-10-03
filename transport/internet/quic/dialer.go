@@ -11,6 +11,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/net"
 	"github.com/v2fly/v2ray-core/v5/common/task"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
+	"github.com/v2fly/v2ray-core/v5/transport/internet/quic/congestion"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/tls"
 )
 
@@ -170,6 +171,7 @@ func (s *clientConnections) openConnection(destAddr net.Addr, config *Config, tl
 		sysConn.Close()
 		return nil, err
 	}
+	SetCongestion(conn, config)
 
 	context := &connectionContext{
 		conn:    conn,
@@ -177,6 +179,15 @@ func (s *clientConnections) openConnection(destAddr net.Addr, config *Config, tl
 	}
 	s.runningConnections[dest] = append(conns, context)
 	return context.openStream(destAddr)
+}
+
+func SetCongestion(conn quic.Connection, config *Config) {
+	if config.Congestion != nil && config.Congestion.Type == "brutal" {
+		byteps := config.Congestion.UpMbps * (10 ^ 6)
+		congestion.UseBrutal(conn, byteps)
+	} else {
+		congestion.UseBBR(conn)
+	}
 }
 
 var client clientConnections
