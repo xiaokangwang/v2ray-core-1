@@ -41,9 +41,9 @@ func (c *connectionContext) openStream(destAddr net.Addr) (*interConn, error) {
 }
 
 type clientConnections struct {
-	access  sync.Mutex
-	conns   map[net.Destination][]*connectionContext
-	cleanup *task.Periodic
+	access             sync.Mutex
+	runningConnections map[net.Destination][]*connectionContext
+	cleanup            *task.Periodic
 }
 
 func isActive(s quic.Connection) bool {
@@ -98,20 +98,20 @@ func (s *clientConnections) cleanConnections() error {
 	s.access.Lock()
 	defer s.access.Unlock()
 
-	if len(s.conns) == 0 {
+	if len(s.runningConnections) == 0 {
 		return nil
 	}
 
 	newConnMap := make(map[net.Destination][]*connectionContext)
 
-	for dest, conns := range s.conns {
+	for dest, conns := range s.runningConnections {
 		conns = removeInactiveConnections(conns)
 		if len(conns) > 0 {
 			newConnMap[dest] = conns
 		}
 	}
 
-	s.conns = newConnMap
+	s.runningConnections = newConnMap
 	return nil
 }
 
@@ -119,14 +119,14 @@ func (s *clientConnections) openConnection(destAddr net.Addr, config *Config, tl
 	s.access.Lock()
 	defer s.access.Unlock()
 
-	if s.conns == nil {
-		s.conns = make(map[net.Destination][]*connectionContext)
+	if s.runningConnections == nil {
+		s.runningConnections = make(map[net.Destination][]*connectionContext)
 	}
 
 	dest := net.DestinationFromAddr(destAddr)
 
 	var conns []*connectionContext
-	if s, found := s.conns[dest]; found {
+	if s, found := s.runningConnections[dest]; found {
 		conns = s
 	}
 
@@ -162,11 +162,10 @@ func (s *clientConnections) openConnection(destAddr net.Addr, config *Config, tl
 	}
 
 	tr := quic.Transport{
-		Conn:               sysConn,
-		ConnectionIDLength: 12,
+		Conn: sysConn,
 	}
 
-	conn, err := tr.Dial(context.Background(), destAddr, tlsConfig.GetTLSConfig(tls.WithDestination(dest)), quicConfig)
+	conn, err := tr.DialEarly(context.Background(), destAddr, tlsConfig.GetTLSConfig(tls.WithDestination(dest)), quicConfig)
 	if err != nil {
 		sysConn.Close()
 		return nil, err
@@ -176,14 +175,14 @@ func (s *clientConnections) openConnection(destAddr net.Addr, config *Config, tl
 		conn:    conn,
 		rawConn: sysConn,
 	}
-	s.conns[dest] = append(conns, context)
+	s.runningConnections[dest] = append(conns, context)
 	return context.openStream(destAddr)
 }
 
 var client clientConnections
 
 func init() {
-	client.conns = make(map[net.Destination][]*connectionContext)
+	client.runningConnections = make(map[net.Destination][]*connectionContext)
 	client.cleanup = &task.Periodic{
 		Interval: time.Minute,
 		Execute:  client.cleanConnections,
