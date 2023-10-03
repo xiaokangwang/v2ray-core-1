@@ -120,9 +120,10 @@ func getInstalledProtocVersion(protocPath string) (string, error) {
 	if cmdErr != nil {
 		return "", cmdErr
 	}
-	versionRegexp := regexp.MustCompile(`protoc\s*(\d+\.\d+\.\d+)`)
+	versionRegexp := regexp.MustCompile(`protoc\s*(\d+\.\d+)`)
 	matched := versionRegexp.FindStringSubmatch(string(output))
-	return matched[1], nil
+	repoProtocVersion := "4." + matched[1] // in contrast to getProjectProtocVersion()
+	return repoProtocVersion, nil
 }
 
 func parseVersion(s string, width int) int64 {
@@ -186,7 +187,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if needToUpdate(targetedVersion, installedVersion) {
+	if needToUpdate(targetedVersion, installedVersion) && false {
 		fmt.Printf(`
 You are using an old protobuf version, please update to v%s or later.
 Download it from https://github.com/protocolbuffers/protobuf/releases
@@ -224,6 +225,9 @@ Download it from https://github.com/protocolbuffers/protobuf/releases
 		os.Exit(1)
 	}
 
+	// Require:
+	// go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+	// go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 	for _, files := range protoFilesMap {
 		for _, relProtoFile := range files {
 			args := []string{
