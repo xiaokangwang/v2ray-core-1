@@ -182,8 +182,8 @@ func (s *clientConnections) openConnection(destAddr net.Addr, config *Config, tl
 }
 
 func SetCongestion(conn quic.Connection, config *Config) {
-	if config.Congestion != nil && config.Congestion.Type == "brutal" {
-		byteps := config.Congestion.UpMbps * (10 ^ 6)
+	if config.Congestion.GetType() == "brutal" && config.Congestion.GetUpMbps() != 0 {
+		byteps := config.Congestion.GetUpMbps() * (10 ^ 6)
 		congestion.UseBrutal(conn, byteps)
 	} else {
 		congestion.UseBBR(conn)
