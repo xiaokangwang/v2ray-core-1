@@ -11,6 +11,13 @@ import "common/protocol/headers.proto";
 
 import "common/protoext/extensions.proto";
 
+message Congestion{
+  string type = 1;
+
+  uint32 up_mbps = 2;
+  uint32 down_mbps = 3;
+}
+
 message Config {
   option (v2ray.core.common.protoext.message_opt).type = "transport";
   option (v2ray.core.common.protoext.message_opt).short_name = "quic";
@@ -18,4 +25,5 @@ message Config {
   string key = 1;
   v2ray.core.common.protocol.SecurityConfig security = 2;
   google.protobuf.Any header = 3;
+  Congestion congestion = 4;
 }

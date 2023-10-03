@@ -7,7 +7,7 @@ import (
 	"encoding/binary"
 	"io"
 
-	"github.com/quic-go/quic-go/quicvarint"
+	"github.com/apernet/quic-go/quicvarint"
 	"golang.org/x/crypto/hkdf"
 
 	"github.com/v2fly/v2ray-core/v5/common"
