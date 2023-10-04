@@ -129,18 +129,14 @@ func (s *clientConnections) openConnection(destAddr net.Addr, config *Config, tl
 	var conns []*connectionContext
 	if s, found := s.runningConnections[dest]; found {
 		conns = s
-	}
-
-	{
 		conn := openStream(conns, destAddr)
 		if conn != nil {
+			newError("dialing QUIC stream to ", dest).WriteToLog()
 			return conn, nil
 		}
 	}
-
 	conns = removeInactiveConnections(conns)
-
-	newError("dialing QUIC to ", dest).WriteToLog()
+	newError("dialing QUIC new connection to ", dest).WriteToLog()
 
 	rawConn, err := internet.ListenSystemPacket(context.Background(), &net.UDPAddr{
 		IP:   []byte{0, 0, 0, 0},
@@ -150,11 +146,7 @@ func (s *clientConnections) openConnection(destAddr net.Addr, config *Config, tl
 		return nil, err
 	}
 
-	quicConfig := &quic.Config{
-		HandshakeIdleTimeout: time.Second * 8,
-		MaxIdleTimeout:       time.Second * 30,
-		KeepAlivePeriod:      time.Second * 15,
-	}
+	quicConfig := InitQuicConfig()
 
 	sysConn, err := wrapSysConn(rawConn.(*net.UDPConn), config)
 	if err != nil {
@@ -183,11 +175,30 @@ func (s *clientConnections) openConnection(destAddr net.Addr, config *Config, tl
 
 func SetCongestion(conn quic.Connection, config *Config) {
 	if config.Congestion.GetType() == "brutal" && config.Congestion.GetSendMbps() != 0 {
-		sendBps := config.Congestion.GetSendMbps() * (10 ^ 6)
+		sendBps := config.Congestion.GetSendMbps() * 1000000
 		congestion.UseBrutal(conn, sendBps)
 	} else {
 		congestion.UseBBR(conn)
 	}
+}
+
+const (
+	defaultStreamReceiveWindow  = 8388608                            // 8MB
+	defaultConnReceiveWindow    = defaultStreamReceiveWindow * 5 / 2 // 20MB
+	defaultMaxIdleTimeout       = 30 * time.Second
+	defaultKeepAlivePeriod      = 10 * time.Second
+	defaultHandshakeIdleTimeout = 10 * time.Second
+)
+
+func InitQuicConfig() *quic.Config {
+	quicConfig := &quic.Config{
+		HandshakeIdleTimeout:           defaultHandshakeIdleTimeout,
+		MaxIdleTimeout:                 defaultMaxIdleTimeout,
+		KeepAlivePeriod:                defaultKeepAlivePeriod,
+		InitialStreamReceiveWindow:     defaultStreamReceiveWindow,
+		InitialConnectionReceiveWindow: defaultConnReceiveWindow,
+	}
+	return quicConfig
 }
 
 var client clientConnections

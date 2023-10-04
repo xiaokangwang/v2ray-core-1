@@ -813,11 +813,9 @@ func (b *bbrSender) calculatePacingRate(bytesLost congestion.ByteCount) {
 				// We are fairly sure overshoot happens if 1) there is at least one
 				// non app-limited bw sample or 2) half of IW gets lost. Slow pacing
 				// rate.
-				remoteRate := BandwidthFromDelta(b.cwndToCalculateMinPacingRate, b.rttStats.MinRTT())
-				if targetRate > remoteRate {
+				b.pacingRate = BandwidthFromDelta(b.cwndToCalculateMinPacingRate, b.rttStats.MinRTT())
+				if targetRate > b.pacingRate {
 					b.pacingRate = targetRate
-				} else {
-					b.pacingRate = remoteRate
 				}
 				b.bytesLostWhileDetectingOvershooting = 0
 				b.detectOvershooting = false
@@ -826,12 +824,9 @@ func (b *bbrSender) calculatePacingRate(bytesLost congestion.ByteCount) {
 	}
 
 	// Do not decrease the pacing rate during startup.
-	if b.pacingRate > targetRate {
-		b.pacingRate = b.pacingRate
-	} else {
+	if targetRate > b.pacingRate {
 		b.pacingRate = targetRate
 	}
-
 }
 
 // Determines the appropriate congestion window for the connection.

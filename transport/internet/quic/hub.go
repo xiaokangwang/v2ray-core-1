@@ -60,7 +60,6 @@ func (l *Listener) keepAccepting() {
 			if l.done.Done() {
 				break
 			}
-			time.Sleep(time.Second)
 			continue
 		}
 		SetCongestion(conn, l.config)
@@ -103,13 +102,7 @@ func Listen(ctx context.Context, address net.Address, port net.Port, streamSetti
 		return nil, err
 	}
 
-	quicConfig := &quic.Config{
-		HandshakeIdleTimeout:  time.Second * 8,
-		MaxIdleTimeout:        time.Second * 45,
-		MaxIncomingStreams:    32,
-		MaxIncomingUniStreams: -1,
-		KeepAlivePeriod:       time.Second * 15,
-	}
+	quicConfig := InitQuicConfig()
 
 	conn, err := wrapSysConn(rawConn.(*net.UDPConn), config)
 	if err != nil {
