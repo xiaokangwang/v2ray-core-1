@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"go/build"
 	"io"
@@ -119,10 +120,22 @@ func getInstalledProtocVersion(protocPath string) (string, error) {
 	if cmdErr != nil {
 		return "", cmdErr
 	}
-	versionRegexp := regexp.MustCompile(`protoc\s*(\d+\.\d+)`)
+	versionRegexp := regexp.MustCompile(`protoc\s*(\d+\.\d+\.\d+)`)
 	matched := versionRegexp.FindStringSubmatch(string(output))
-	repoProtocVersion := "4." + matched[1] // in contrast to getProjectProtocVersion()
-	return repoProtocVersion, nil
+	installedVersion := ""
+	if len(matched) == 0 {
+		// try new version of protoc
+		versionRegexp = regexp.MustCompile(`protoc\s*(\d+\.\d+)`)
+		matched = versionRegexp.FindStringSubmatch(string(output))
+		installedVersion += "4." // in contrast to getProjectProtocVersion()
+	}
+
+	if len(matched) == 0 {
+		return "", errors.New("Can not parse protoc version.")
+	}
+	installedVersion += matched[1]
+	fmt.Println("Using protoc version: " + installedVersion)
+	return installedVersion, nil
 }
 
 func parseVersion(s string, width int) int64 {
@@ -224,9 +237,6 @@ Download it from https://github.com/protocolbuffers/protobuf/releases
 		os.Exit(1)
 	}
 
-	// Require:
-	// go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-	// go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 	for _, files := range protoFilesMap {
 		for _, relProtoFile := range files {
 			args := []string{
