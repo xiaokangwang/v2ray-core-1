@@ -1,9 +1,10 @@
 package congestion
 
 import (
-	"github.com/apernet/quic-go"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/quic/congestion/bbr"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/quic/congestion/brutal"
+
+	"github.com/apernet/quic-go"
 )
 
 func UseBBR(conn quic.Connection) {

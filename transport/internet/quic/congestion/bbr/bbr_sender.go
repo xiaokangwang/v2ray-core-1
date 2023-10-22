@@ -21,6 +21,8 @@ import (
 //
 
 const (
+	minBps = 65536 // 64 kbps
+
 	invalidPacketNumber            = -1
 	initialCongestionWindowPackets = 32
 
@@ -283,10 +285,7 @@ func newBbrSender(
 		maxCongestionWindowWithNetworkParametersAdjusted: initialMaxCongestionWindow,
 		maxDatagramSize: initialMaxDatagramSize,
 	}
-	b.pacer = common.NewPacer(func() congestion.ByteCount {
-		// Pacer wants bytes per second, but Bandwidth is in bits per second.
-		return congestion.ByteCount(float64(b.bandwidthEstimate()) * b.congestionWindowGain / float64(BytesPerSecond))
-	})
+	b.pacer = common.NewPacer(b.bandwidthForPacer)
 
 	/*
 		if b.tracer != nil {
@@ -390,7 +389,7 @@ func (b *bbrSender) GetCongestionWindow() congestion.ByteCount {
 	}
 
 	if b.InRecovery() {
-		return common.MinByteCount(b.congestionWindow, b.recoveryWindow)
+		return min(b.congestionWindow, b.recoveryWindow)
 	}
 
 	return b.congestionWindow
@@ -483,10 +482,19 @@ func (b *bbrSender) OnCongestionEventEx(priorInFlight congestion.ByteCount, even
 	b.calculateRecoveryWindow(bytesAcked, bytesLost)
 
 	// Cleanup internal state.
-	if len(lostPackets) != 0 {
-		lastLostPacket := lostPackets[len(lostPackets)-1].PacketNumber
-		b.sampler.RemoveObsoletePackets(lastLostPacket)
+	// This is where we clean up obsolete (acked or lost) packets from the bandwidth sampler.
+	// The "least unacked" should actually be FirstOutstanding, but since we are not passing
+	// that through OnCongestionEventEx, we will only do an estimate using acked/lost packets
+	// for now. Because of fast retransmission, they should differ by no more than 2 packets.
+	// (this is controlled by packetThreshold in quic-go's sentPacketHandler)
+	var leastUnacked congestion.PacketNumber
+	if len(ackedPackets) != 0 {
+		leastUnacked = ackedPackets[len(ackedPackets)-1].PacketNumber - 2
+	} else {
+		leastUnacked = lostPackets[len(lostPackets)-1].PacketNumber + 1
 	}
+	b.sampler.RemoveObsoletePackets(leastUnacked)
+
 	if isRoundStart {
 		b.numLossEventsInRound = 0
 		b.bytesLostInRound = 0
@@ -536,6 +544,17 @@ func (b *bbrSender) bandwidthEstimate() Bandwidth {
 	return b.maxBandwidth.GetBest()
 }
 
+func (b *bbrSender) bandwidthForPacer() congestion.ByteCount {
+	bps := congestion.ByteCount(float64(b.bandwidthEstimate()) * b.congestionWindowGain / float64(BytesPerSecond))
+	if bps < minBps {
+		// We need to make sure that the bandwidth value for pacer is never zero,
+		// otherwise it will go into an edge case where HasPacingBudget = false
+		// but TimeUntilSend is before, causing the quic-go send loop to go crazy and get stuck.
+		return minBps
+	}
+	return bps
+}
+
 // Returns the current estimate of the RTT of the connection.  Outside of the
 // edge cases, this is minimum RTT.
 func (b *bbrSender) getMinRtt() time.Duration {
@@ -563,7 +582,7 @@ func (b *bbrSender) getTargetCongestionWindow(gain float64) congestion.ByteCount
 		congestionWindow = congestion.ByteCount(gain * float64(b.initialCongestionWindow))
 	}
 
-	return common.MaxByteCount(congestionWindow, b.minCongestionWindow)
+	return max(congestionWindow, b.minCongestionWindow)
 }
 
 // The target congestion window during PROBE_RTT.
@@ -813,10 +832,7 @@ func (b *bbrSender) calculatePacingRate(bytesLost congestion.ByteCount) {
 				// We are fairly sure overshoot happens if 1) there is at least one
 				// non app-limited bw sample or 2) half of IW gets lost. Slow pacing
 				// rate.
-				b.pacingRate = BandwidthFromDelta(b.cwndToCalculateMinPacingRate, b.rttStats.MinRTT())
-				if targetRate > b.pacingRate {
-					b.pacingRate = targetRate
-				}
+				b.pacingRate = max(targetRate, BandwidthFromDelta(b.cwndToCalculateMinPacingRate, b.rttStats.MinRTT()))
 				b.bytesLostWhileDetectingOvershooting = 0
 				b.detectOvershooting = false
 			}
@@ -824,9 +840,7 @@ func (b *bbrSender) calculatePacingRate(bytesLost congestion.ByteCount) {
 	}
 
 	// Do not decrease the pacing rate during startup.
-	if targetRate > b.pacingRate {
-		b.pacingRate = targetRate
-	}
+	b.pacingRate = max(b.pacingRate, targetRate)
 }
 
 // Determines the appropriate congestion window for the connection.
@@ -849,7 +863,7 @@ func (b *bbrSender) calculateCongestionWindow(bytesAcked, excessAcked congestion
 	// the CWND towards |target_window| by only increasing it |bytes_acked| at a
 	// time.
 	if b.isAtFullBandwidth {
-		b.congestionWindow = common.MinByteCount(targetWindow, b.congestionWindow+bytesAcked)
+		b.congestionWindow = min(targetWindow, b.congestionWindow+bytesAcked)
 	} else if b.congestionWindow < targetWindow ||
 		b.sampler.TotalBytesAcked() < b.initialCongestionWindow {
 		// If the connection is not yet out of startup phase, do not decrease the
@@ -858,8 +872,8 @@ func (b *bbrSender) calculateCongestionWindow(bytesAcked, excessAcked congestion
 	}
 
 	// Enforce the limits on the congestion window.
-	b.congestionWindow = common.MaxByteCount(b.congestionWindow, b.minCongestionWindow)
-	b.congestionWindow = common.MinByteCount(b.congestionWindow, b.maxCongestionWindow)
+	b.congestionWindow = max(b.congestionWindow, b.minCongestionWindow)
+	b.congestionWindow = min(b.congestionWindow, b.maxCongestionWindow)
 }
 
 // Determines the appropriate window that constrains the in-flight during recovery.
@@ -871,7 +885,7 @@ func (b *bbrSender) calculateRecoveryWindow(bytesAcked, bytesLost congestion.Byt
 	// Set up the initial recovery window.
 	if b.recoveryWindow == 0 {
 		b.recoveryWindow = b.bytesInFlight + bytesAcked
-		b.recoveryWindow = common.MaxByteCount(b.minCongestionWindow, b.recoveryWindow)
+		b.recoveryWindow = max(b.minCongestionWindow, b.recoveryWindow)
 		return
 	}
 
@@ -890,8 +904,8 @@ func (b *bbrSender) calculateRecoveryWindow(bytesAcked, bytesLost congestion.Byt
 	}
 
 	// Always allow sending at least |bytes_acked| in response.
-	b.recoveryWindow = common.MaxByteCount(b.recoveryWindow, b.bytesInFlight+bytesAcked)
-	b.recoveryWindow = common.MaxByteCount(b.minCongestionWindow, b.recoveryWindow)
+	b.recoveryWindow = max(b.recoveryWindow, b.bytesInFlight+bytesAcked)
+	b.recoveryWindow = max(b.minCongestionWindow, b.recoveryWindow)
 }
 
 // Return whether we should exit STARTUP due to excessive loss.

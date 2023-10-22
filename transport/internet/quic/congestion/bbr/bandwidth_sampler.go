@@ -75,20 +75,6 @@ func maxExtraAckedEventFunc(a, b extraAckedEvent) int {
 	return 0
 }
 
-func MaxBandwidth(a Bandwidth, b Bandwidth) Bandwidth {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-func MinBandwidth(a Bandwidth, b Bandwidth) Bandwidth {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 // BandwidthSample
 type bandwidthSample struct {
 	// The bandwidth at that particular sample. Zero if no valid bandwidth sample
@@ -645,16 +631,14 @@ func (b *bandwidthSampler) OnCongestionEvent(
 		lastAckedPacketSendState = sample.stateAtSend
 
 		if sample.rtt != 0 {
-			if eventSample.sampleRtt > sample.rtt {
-				eventSample.sampleRtt = sample.rtt
-			}
+			eventSample.sampleRtt = min(eventSample.sampleRtt, sample.rtt)
 		}
 		if sample.bandwidth > eventSample.sampleMaxBandwidth {
 			eventSample.sampleMaxBandwidth = sample.bandwidth
 			eventSample.sampleIsAppLimited = sample.stateAtSend.isAppLimited
 		}
 		if sample.sendRate != infBandwidth {
-			maxSendRate = MaxBandwidth(maxSendRate, sample.sendRate)
+			maxSendRate = max(maxSendRate, sample.sendRate)
 		}
 		inflightSample := b.totalBytesAcked - lastAckedPacketSendState.totalBytesAcked
 		if inflightSample > eventSample.sampleMaxInflight {
@@ -679,12 +663,12 @@ func (b *bandwidthSampler) OnCongestionEvent(
 	}
 
 	isNewMaxBandwidth := eventSample.sampleMaxBandwidth > maxBandwidth
-	maxBandwidth = MaxBandwidth(maxBandwidth, eventSample.sampleMaxBandwidth)
+	maxBandwidth = max(maxBandwidth, eventSample.sampleMaxBandwidth)
 	if b.limitMaxAckHeightTrackerBySendRate {
-		maxBandwidth = MaxBandwidth(maxBandwidth, maxSendRate)
+		maxBandwidth = max(maxBandwidth, maxSendRate)
 	}
 
-	eventSample.extraAcked = b.onAckEventEnd(MinBandwidth(estBandwidthUpperBound, maxBandwidth), isNewMaxBandwidth, roundTripCount)
+	eventSample.extraAcked = b.onAckEventEnd(min(estBandwidthUpperBound, maxBandwidth), isNewMaxBandwidth, roundTripCount)
 
 	return *eventSample
 }
@@ -835,7 +819,7 @@ func (b *bandwidthSampler) onPacketAcknowledged(ackTime time.Time, packetNumber 
 
 	ackRate := BandwidthFromDelta(b.totalBytesAcked-a0.totalBytesAcked, ackTime.Sub(a0.ackTime))
 
-	sample.bandwidth = MinBandwidth(sendRate, ackRate)
+	sample.bandwidth = min(sendRate, ackRate)
 	// Note: this sample does not account for delayed acknowledgement time.  This
 	// means that the RTT measurements here can be artificially high, especially
 	// on low bandwidth connections.

@@ -181,6 +181,7 @@ func SetCongestion(conn quic.Connection, config *Config) {
 	} else if congestionType == "bbr" {
 		congestion.UseBBR(conn)
 	}
+	newError("[QUIC] using congestion: ", congestionType).WriteToLog()
 }
 
 const (
