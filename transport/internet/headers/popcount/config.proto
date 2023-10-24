@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package v2ray.core.transport.internet.headers.popcount;
+option csharp_namespace = "V2Ray.Core.Transport.Internet.Headers.Popcount";
+option go_package = "github.com/v2fly/v2ray-core/v5/transport/internet/headers/popcount";
+option java_package = "com.v2ray.core.transport.internet.headers.popcount";
+option java_multiple_files = true;
+
+message Config {
+  int32 expansion_payload_length = 1;
+  int32 added_length = 2;
+  int32 diversifier_length = 3;
+  string seed = 4;
+}
