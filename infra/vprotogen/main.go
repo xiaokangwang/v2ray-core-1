@@ -124,14 +124,11 @@ func getInstalledProtocVersion(protocPath string) (string, error) {
 	matched := versionRegexp.FindStringSubmatch(string(output))
 	installedVersion := ""
 	if len(matched) == 0 {
-		// try new version of protoc
-		versionRegexp = regexp.MustCompile(`protoc\s*(\d+\.\d+)`)
-		matched = versionRegexp.FindStringSubmatch(string(output))
-		installedVersion += "4." // in contrast to getProjectProtocVersion()
+		return "", errors.New("Can not parse protoc version.")
 	}
 
-	if len(matched) == 0 {
-		return "", errors.New("Can not parse protoc version.")
+	if len(matched) == 2 {
+		installedVersion += "4." // in contrast to getProjectProtocVersion()
 	}
 	installedVersion += matched[1]
 	fmt.Println("Using protoc version: " + installedVersion)
