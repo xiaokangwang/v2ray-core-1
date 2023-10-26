@@ -133,7 +133,6 @@ func (p *packetNumberIndexedQueue[T]) RemoveUpTo(packetNumber congestion.PacketN
 	}
 	p.clearup()
 
-	return
 }
 
 // IsEmpty return if queue is empty.

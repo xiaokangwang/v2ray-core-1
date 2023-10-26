@@ -1,3 +1,4 @@
+//nolint:golint,unused
 package bbr
 
 import (
