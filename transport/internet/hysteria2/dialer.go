@@ -11,9 +11,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/transport/internet/tls"
 )
 
-var RunningClient map[net.Destination]hy.Client
-
-var errConnectionClosed = newError("connection closed")
+var RunningClient map[net.Destination](hy.Client)
 
 func InitTLSConifg(streamSettings *internet.MemoryStreamConfig) (*hy.TLSConfig, error) {
 	tlsConfig := tls.ConfigFromStreamSettings(streamSettings)
@@ -23,8 +21,52 @@ func InitTLSConifg(streamSettings *internet.MemoryStreamConfig) (*hy.TLSConfig, 
 			AllowInsecure: true,
 		}
 	}
-	res := &hy.TLSConfig{ServerName: tlsConfig.ServerName, InsecureSkipVerify: tlsConfig.AllowInsecure}
+	res := &hy.TLSConfig{
+		ServerName:         tlsConfig.ServerName,
+		InsecureSkipVerify: tlsConfig.AllowInsecure,
+	}
 	return res, nil
+}
+
+func InitAddress(dest net.Destination) (net.Addr, error) {
+	var destAddr *net.UDPAddr
+	if dest.Address.Family().IsIP() {
+		destAddr = &net.UDPAddr{
+			IP:   dest.Address.IP(),
+			Port: int(dest.Port),
+		}
+	} else {
+		addr, err := net.ResolveUDPAddr("udp", dest.NetAddr())
+		if err != nil {
+			return nil, err
+		}
+		destAddr = addr
+	}
+	return destAddr, nil
+}
+
+func NewHyClient(dest net.Destination, streamSettings *internet.MemoryStreamConfig) (hy.Client, error) {
+	tlsConfig, err := InitTLSConifg(streamSettings)
+	if err != nil {
+		return nil, err
+	}
+
+	serverAddr, err := InitAddress(dest)
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := hy.NewClient(&hy.Config{
+		TLSConfig:  *tlsConfig,
+		Auth:       streamSettings.ProtocolName,
+		ServerAddr: serverAddr,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	RunningClient[dest] = client
+	return client, nil
 }
 
 func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (internet.Connection, error) {
@@ -32,15 +74,10 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 	client, found := RunningClient[dest]
 	if !found {
 		var err error
-		tlsConfig, err := InitTLSConifg(streamSettings)
+		client, err = NewHyClient(dest, streamSettings)
 		if err != nil {
 			return nil, err
 		}
-		client, err = hy.NewClient(&hy.Config{TLSConfig: *tlsConfig})
-		if err != nil {
-			return nil, err
-		}
-		RunningClient[dest] = client
 	}
 
 	stream, err := client.OpenStream()
@@ -49,12 +86,12 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 	}
 
 	quicConn := client.GetQuicConn()
-	conn := &interConn{
+	internetConn := &interConn{
 		stream: stream,
 		local:  quicConn.LocalAddr(),
 		remote: quicConn.RemoteAddr(),
 	}
-	return conn, nil
+	return internetConn, nil
 }
 
 func init() {

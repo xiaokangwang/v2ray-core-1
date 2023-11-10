@@ -34,16 +34,3 @@ func getAuth(config *Config) (cipher.AEAD, error) {
 
 	return nil, newError("unsupported security type")
 }
-
-func getHeader(config *Config) (internet.PacketHeader, error) {
-	if config.Header == nil {
-		return nil, nil
-	}
-
-	msg, err := serial.GetInstanceOf(config.Header)
-	if err != nil {
-		return nil, err
-	}
-
-	return internet.CreatePacketHeader(msg)
-}
