@@ -4,7 +4,8 @@ go 1.21
 
 require (
 	github.com/adrg/xdg v0.4.0
-	github.com/apernet/quic-go v0.39.1-0.20230930045547-13cecb45baa8
+	github.com/apernet/hysteria/core v1.3.5
+	github.com/apernet/quic-go v0.39.4-0.20231029220436-0faa281e4a77
 	github.com/go-chi/chi/v5 v5.0.10
 	github.com/go-chi/render v1.0.3
 	github.com/go-playground/validator/v10 v10.15.5
@@ -39,6 +40,8 @@ require (
 	h12.io/socks v1.0.3
 )
 
+replace github.com/apernet/hysteria/core => ../../hysteria/core
+
 require (
 	github.com/aead/cmac v0.0.0-20160719120800-7af84192f0b1 // indirect
 	github.com/ajg/form v1.5.1 // indirect
@@ -70,10 +73,12 @@ require (
 	github.com/pion/sctp v1.8.7 // indirect
 	github.com/pion/transport/v2 v2.2.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/quic-go/qpack v0.4.0 // indirect
 	github.com/quic-go/qtls-go1-20 v0.4.1 // indirect
 	github.com/quic-go/quic-go v0.40.0 // indirect
 	github.com/riobard/go-bloom v0.0.0-20200614022211-cdc8013cb5b3 // indirect
 	github.com/secure-io/siv-go v0.0.0-20180922214919-5ff40651e2c4 // indirect
+	github.com/stretchr/objx v0.5.0 // indirect
 	github.com/xtaci/smux v1.5.24 // indirect
 	go.uber.org/mock v0.3.0 // indirect
 	golang.org/x/mod v0.13.0 // indirect
