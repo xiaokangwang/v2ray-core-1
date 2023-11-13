@@ -2,8 +2,8 @@ package hysteria2
 
 import (
 	"context"
-	"time"
 
+	hy "github.com/apernet/hysteria/core/server"
 	"github.com/apernet/quic-go"
 
 	"github.com/v2fly/v2ray-core/v5/common"
@@ -23,50 +23,6 @@ type Listener struct {
 	config   *Config
 }
 
-func (l *Listener) acceptStreams(conn quic.Connection) {
-	for {
-		stream, err := conn.AcceptStream(context.Background())
-		if err != nil {
-			newError("failed to accept stream").Base(err).WriteToLog()
-			select {
-			case <-conn.Context().Done():
-				return
-			case <-l.done.Wait():
-				if err := conn.CloseWithError(0, ""); err != nil {
-					newError("failed to close connection").Base(err).WriteToLog()
-				}
-				return
-			default:
-				time.Sleep(time.Second)
-				continue
-			}
-		}
-
-		conn := &interConn{
-			stream: stream,
-			local:  conn.LocalAddr(),
-			remote: conn.RemoteAddr(),
-		}
-
-		l.addConn(conn)
-	}
-}
-
-func (l *Listener) keepAccepting() {
-	for {
-		conn, err := l.listener.Accept(context.Background())
-		if err != nil {
-			newError("failed to accept QUIC connections").Base(err).WriteToLog()
-			if l.done.Done() {
-				break
-			}
-			continue
-		}
-		SetCongestion(conn, l.config)
-		go l.acceptStreams(conn)
-	}
-}
-
 // Addr implements internet.Listener.Addr.
 func (l *Listener) Addr() net.Addr {
 	return l.listener.Addr()
@@ -74,23 +30,27 @@ func (l *Listener) Addr() net.Addr {
 
 // Close implements internet.Listener.Close.
 func (l *Listener) Close() error {
-	l.done.Close()
-	l.listener.Close()
-	l.rawConn.Close()
 	return nil
+}
+
+func GetTLSConfig(streamSettings *internet.MemoryStreamConfig) *hy.TLSConfig {
+	tlsSetting := tls.ConfigFromStreamSettings(streamSettings)
+	if tlsSetting == nil {
+		tlsSetting = &tls.Config{
+			Certificate: []*tls.Certificate{
+				tls.ParseCertificate(
+					cert.MustGenerate(nil, cert.DNSNames(internalDomain), cert.CommonName(internalDomain)),
+				),
+			},
+		}
+	}
+	return &hy.TLSConfig{Certificates: tlsSetting.GetTLSConfig().Certificates}
 }
 
 // Listen creates a new Listener based on configurations.
 func Listen(ctx context.Context, address net.Address, port net.Port, streamSettings *internet.MemoryStreamConfig, handler internet.ConnHandler) (internet.Listener, error) {
 	if address.Family().IsDomain() {
 		return nil, newError("domain address is not allows for listening quic")
-	}
-
-	tlsConfig := tls.ConfigFromStreamSettings(streamSettings)
-	if tlsConfig == nil {
-		tlsConfig = &tls.Config{
-			Certificate: []*tls.Certificate{tls.ParseCertificate(cert.MustGenerate(nil, cert.DNSNames(internalDomain), cert.CommonName(internalDomain)))},
-		}
 	}
 
 	config := streamSettings.ProtocolSettings.(*Config)
@@ -102,34 +62,22 @@ func Listen(ctx context.Context, address net.Address, port net.Port, streamSetti
 		return nil, err
 	}
 
-	quicConfig := InitQuicConfig()
+	hyServer, err := hy.NewServer(&hy.Config{
+		Conn:      rawConn,
+		TLSConfig: *GetTLSConfig(streamSettings),
+	})
 
-	conn, err := wrapSysConn(rawConn.(*net.UDPConn), config)
+	err = hyServer.Serve()
 	if err != nil {
-		conn.Close()
-		return nil, err
-	}
-
-	tr := quic.Transport{
-		Conn:               conn,
-		ConnectionIDLength: 12,
-	}
-
-	qListener, err := tr.Listen(tlsConfig.GetTLSConfig(), quicConfig)
-	if err != nil {
-		conn.Close()
+		rawConn.Close()
 		return nil, err
 	}
 
 	listener := &Listener{
-		done:     done.New(),
-		rawConn:  conn,
-		listener: qListener,
-		addConn:  handler,
-		config:   config,
+		done:    done.New(),
+		addConn: handler,
+		config:  config,
 	}
-
-	go listener.keepAccepting()
 
 	return listener, nil
 }
