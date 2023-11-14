@@ -1,162 +1,65 @@
 package hysteria2
 
 import (
-	"crypto/cipher"
-	"crypto/rand"
-	"errors"
-	"syscall"
+	"fmt"
 	"time"
 
 	"github.com/apernet/quic-go"
+	"github.com/apernet/quic-go/quicvarint"
 
-	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/buf"
 	"github.com/v2fly/v2ray-core/v5/common/net"
-	"github.com/v2fly/v2ray-core/v5/transport/internet"
 )
-
-type sysConn struct {
-	conn   *net.UDPConn
-	header internet.PacketHeader
-	auth   cipher.AEAD
-}
-
-func wrapSysConn(rawConn *net.UDPConn, config *Config) (*sysConn, error) {
-	header, err := getHeader(config)
-	if err != nil {
-		return nil, err
-	}
-	auth, err := getAuth(config)
-	if err != nil {
-		return nil, err
-	}
-	return &sysConn{
-		conn:   rawConn,
-		header: header,
-		auth:   auth,
-	}, nil
-}
-
-var errInvalidPacket = errors.New("invalid packet")
-
-func (c *sysConn) readFromInternal(p []byte) (int, net.Addr, error) {
-	buffer := getBuffer()
-	defer putBuffer(buffer)
-
-	nBytes, addr, err := c.conn.ReadFrom(buffer)
-	if err != nil {
-		return 0, nil, err
-	}
-
-	payload := buffer[:nBytes]
-	if c.header != nil {
-		if len(payload) <= int(c.header.Size()) {
-			return 0, nil, errInvalidPacket
-		}
-		payload = payload[c.header.Size():]
-	}
-
-	if c.auth == nil {
-		n := copy(p, payload)
-		return n, addr, nil
-	}
-
-	if len(payload) <= c.auth.NonceSize() {
-		return 0, nil, errInvalidPacket
-	}
-
-	nonce := payload[:c.auth.NonceSize()]
-	payload = payload[c.auth.NonceSize():]
-
-	p, err = c.auth.Open(p[:0], nonce, payload, nil)
-	if err != nil {
-		return 0, nil, errInvalidPacket
-	}
-
-	return len(p), addr, nil
-}
-
-func (c *sysConn) ReadFrom(p []byte) (int, net.Addr, error) {
-	if c.header == nil && c.auth == nil {
-		return c.conn.ReadFrom(p)
-	}
-
-	for {
-		n, addr, err := c.readFromInternal(p)
-		if err != nil && err != errInvalidPacket {
-			return 0, nil, err
-		}
-		if err == nil {
-			return n, addr, nil
-		}
-	}
-}
-
-func (c *sysConn) WriteTo(p []byte, addr net.Addr) (int, error) {
-	if c.header == nil && c.auth == nil {
-		return c.conn.WriteTo(p, addr)
-	}
-
-	buffer := getBuffer()
-	defer putBuffer(buffer)
-
-	payload := buffer
-	n := 0
-	if c.header != nil {
-		c.header.Serialize(payload)
-		n = int(c.header.Size())
-	}
-
-	if c.auth == nil {
-		nBytes := copy(payload[n:], p)
-		n += nBytes
-	} else {
-		nounce := payload[n : n+c.auth.NonceSize()]
-		common.Must2(rand.Read(nounce))
-		n += c.auth.NonceSize()
-		pp := c.auth.Seal(payload[:n], nounce, p, nil)
-		n = len(pp)
-	}
-
-	return c.conn.WriteTo(payload[:n], addr)
-}
-
-func (c *sysConn) Close() error {
-	return c.conn.Close()
-}
-
-func (c *sysConn) LocalAddr() net.Addr {
-	return c.conn.LocalAddr()
-}
-
-func (c *sysConn) SetReadBuffer(bytes int) error {
-	return c.conn.SetReadBuffer(bytes)
-}
-
-func (c *sysConn) SetWriteBuffer(bytes int) error {
-	return c.conn.SetWriteBuffer(bytes)
-}
-
-func (c *sysConn) SetDeadline(t time.Time) error {
-	return c.conn.SetDeadline(t)
-}
-
-func (c *sysConn) SetReadDeadline(t time.Time) error {
-	return c.conn.SetReadDeadline(t)
-}
-
-func (c *sysConn) SetWriteDeadline(t time.Time) error {
-	return c.conn.SetWriteDeadline(t)
-}
-
-func (c *sysConn) SyscallConn() (syscall.RawConn, error) {
-	return c.conn.SyscallConn()
-}
 
 type interConn struct {
 	stream quic.Stream
 	local  net.Addr
 	remote net.Addr
+
+	isClient         bool
+	isWriteFrameType bool
+}
+
+const (
+	FrameTypeTCPRequest = 0x401
+
+	maxVarInt1 = 63
+	maxVarInt2 = 16383
+	maxVarInt4 = 1073741823
+	maxVarInt8 = 4611686018427387903
+)
+
+// varintPut is like quicvarint.Append, but instead of appending to a slice,
+// it writes to a fixed-size buffer. Returns the number of bytes written.
+func varintPut(b []byte, i uint64) int {
+	if i <= maxVarInt1 {
+		b[0] = uint8(i)
+		return 1
+	}
+	if i <= maxVarInt2 {
+		b[0] = uint8(i>>8) | 0x40
+		b[1] = uint8(i)
+		return 2
+	}
+	if i <= maxVarInt4 {
+		b[0] = uint8(i>>24) | 0x80
+		b[1] = uint8(i >> 16)
+		b[2] = uint8(i >> 8)
+		b[3] = uint8(i)
+		return 4
+	}
+	if i <= maxVarInt8 {
+		b[0] = uint8(i>>56) | 0xc0
+		b[1] = uint8(i >> 48)
+		b[2] = uint8(i >> 40)
+		b[3] = uint8(i >> 32)
+		b[4] = uint8(i >> 24)
+		b[5] = uint8(i >> 16)
+		b[6] = uint8(i >> 8)
+		b[7] = uint8(i)
+		return 8
+	}
+	panic(fmt.Sprintf("%#x doesn't fit into 62 bits", i))
 }
 
 func (c *interConn) Read(b []byte) (int, error) {
@@ -171,6 +74,14 @@ func (c *interConn) WriteMultiBuffer(mb buf.MultiBuffer) error {
 }
 
 func (c *interConn) Write(b []byte) (int, error) {
+	if c.isClient && !c.isWriteFrameType {
+		c.isWriteFrameType = true
+		frameSize := int(quicvarint.Len(FrameTypeTCPRequest))
+		buf := make([]byte, frameSize+len(b))
+		i := varintPut(buf, FrameTypeTCPRequest)
+		copy(buf[i:], b)
+		return c.stream.Write(buf)
+	}
 	return c.stream.Write(b)
 }
 

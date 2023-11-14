@@ -5,32 +5,78 @@ import (
 
 	hy "github.com/apernet/hysteria/core/server"
 	"github.com/apernet/quic-go"
+	"github.com/apernet/quic-go/http3"
 
 	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/net"
 	"github.com/v2fly/v2ray-core/v5/common/protocol/tls/cert"
-	"github.com/v2fly/v2ray-core/v5/common/signal/done"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/tls"
 )
 
 // Listener is an internet.Listener that listens for TCP connections.
 type Listener struct {
-	rawConn  *sysConn
-	listener *quic.Listener
-	done     *done.Instance
+	hyServer hy.Server
+	rawConn  net.PacketConn
 	addConn  internet.ConnHandler
-	config   *Config
 }
 
 // Addr implements internet.Listener.Addr.
 func (l *Listener) Addr() net.Addr {
-	return l.listener.Addr()
+	return l.rawConn.LocalAddr()
 }
 
 // Close implements internet.Listener.Close.
 func (l *Listener) Close() error {
-	return nil
+	return l.hyServer.Close()
+}
+
+func (l *Listener) ProxyStreamHijacker(ft http3.FrameType, conn quic.Connection, stream quic.Stream, err error) (bool, error) {
+	if err != nil {
+		l.Close()
+		return false, err
+	}
+
+	internetConn := &interConn{
+		stream: stream,
+		local:  conn.LocalAddr(),
+		remote: conn.RemoteAddr(),
+	}
+	l.addConn(internetConn)
+	return true, nil
+}
+
+// Listen creates a new Listener based on configurations.
+func Listen(ctx context.Context, address net.Address, port net.Port, streamSettings *internet.MemoryStreamConfig, handler internet.ConnHandler) (internet.Listener, error) {
+	if address.Family().IsDomain() {
+		return nil, nil
+	}
+
+	config := streamSettings.ProtocolSettings.(*Config)
+	rawConn, err := internet.ListenSystemPacket(context.Background(), &net.UDPAddr{
+		IP:   address.IP(),
+		Port: int(port),
+	}, streamSettings.SocketSettings)
+	if err != nil {
+		return nil, err
+	}
+
+	listener := &Listener{
+		rawConn: rawConn,
+		addConn: handler,
+	}
+
+	hyServer, err := hy.NewServer(&hy.Config{
+		Conn:                  rawConn,
+		TLSConfig:             *GetTLSConfig(streamSettings),
+		IgnoreClientBandwidth: false,
+		Authenticator:         &Authenticator{Password: config.GetPassword()},
+		StreamHijacker:        listener.ProxyStreamHijacker, // acceptStreams
+	})
+
+	listener.hyServer = hyServer
+	go hyServer.Serve()
+	return listener, nil
 }
 
 func GetTLSConfig(streamSettings *internet.MemoryStreamConfig) *hy.TLSConfig {
@@ -47,39 +93,15 @@ func GetTLSConfig(streamSettings *internet.MemoryStreamConfig) *hy.TLSConfig {
 	return &hy.TLSConfig{Certificates: tlsSetting.GetTLSConfig().Certificates}
 }
 
-// Listen creates a new Listener based on configurations.
-func Listen(ctx context.Context, address net.Address, port net.Port, streamSettings *internet.MemoryStreamConfig, handler internet.ConnHandler) (internet.Listener, error) {
-	if address.Family().IsDomain() {
-		return nil, newError("domain address is not allows for listening quic")
+type Authenticator struct {
+	Password string
+}
+
+func (a *Authenticator) Authenticate(addr net.Addr, auth string, tx uint64) (ok bool, id string) {
+	if auth == a.Password || a.Password == "" {
+		return true, "user"
 	}
-
-	config := streamSettings.ProtocolSettings.(*Config)
-	rawConn, err := internet.ListenSystemPacket(context.Background(), &net.UDPAddr{
-		IP:   address.IP(),
-		Port: int(port),
-	}, streamSettings.SocketSettings)
-	if err != nil {
-		return nil, err
-	}
-
-	hyServer, err := hy.NewServer(&hy.Config{
-		Conn:      rawConn,
-		TLSConfig: *GetTLSConfig(streamSettings),
-	})
-
-	err = hyServer.Serve()
-	if err != nil {
-		rawConn.Close()
-		return nil, err
-	}
-
-	listener := &Listener{
-		done:    done.New(),
-		addConn: handler,
-		config:  config,
-	}
-
-	return listener, nil
+	return false, ""
 }
 
 func init() {
