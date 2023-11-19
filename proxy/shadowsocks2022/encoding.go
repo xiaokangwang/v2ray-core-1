@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/lunixbochs/struc"
+
 	"github.com/v2fly/v2ray-core/v5/common/buf"
 	"github.com/v2fly/v2ray-core/v5/common/crypto"
 	"github.com/v2fly/v2ray-core/v5/common/net"
@@ -34,7 +35,8 @@ type TCPRequest struct {
 }
 
 func (t *TCPRequest) EncodeTCPRequestHeader(effectivePsk []byte,
-	eih [][]byte, address DestinationAddress, destPort int, initialPayload []byte, Out *buf.Buffer) error {
+	eih [][]byte, address DestinationAddress, destPort int, initialPayload []byte, out *buf.Buffer,
+) error {
 	requestSalt := newRequestSaltWithLength(t.method.GetSessionSubKeyAndSaltLength())
 	{
 		err := requestSalt.FillAllFrom(cryptoRand.Reader)
@@ -43,7 +45,7 @@ func (t *TCPRequest) EncodeTCPRequestHeader(effectivePsk []byte,
 		}
 	}
 	t.c2sSalt = requestSalt
-	var sessionKey = make([]byte, t.method.GetSessionSubKeyAndSaltLength())
+	sessionKey := make([]byte, t.method.GetSessionSubKeyAndSaltLength())
 	{
 		err := t.keyDerivation.GetSessionSubKey(effectivePsk, requestSalt.Bytes(), sessionKey)
 		fmt.Println("effectivePsk", hex.EncodeToString(effectivePsk))
@@ -59,7 +61,7 @@ func (t *TCPRequest) EncodeTCPRequestHeader(effectivePsk []byte,
 		return newError("failed to get stream AEAD").Base(err)
 	}
 	t.c2sAEAD = aead
-	var paddingLength = TCPMinPaddingLength
+	paddingLength := TCPMinPaddingLength
 	if initialPayload == nil {
 		initialPayload = []byte{}
 		paddingLength += rand.Intn(TCPMaxPaddingLength) // TODO INSECURE RANDOM USED
@@ -133,7 +135,7 @@ func (t *TCPRequest) EncodeTCPRequestHeader(effectivePsk []byte,
 	requestNonce := crypto.GenerateInitialAEADNonce()
 	t.c2sNonce = requestNonce
 	{
-		n, err := Out.Write(preSessionKeyHeaderBuffer.BytesFrom(0))
+		n, err := out.Write(preSessionKeyHeaderBuffer.BytesFrom(0))
 		if err != nil {
 			return newError("failed to write pre session key header").Base(err)
 		}
@@ -142,29 +144,29 @@ func (t *TCPRequest) EncodeTCPRequestHeader(effectivePsk []byte,
 		}
 	}
 	{
-		fixedLengthEncrypted := Out.Extend(fixedLengthHeaderBuffer.Len() + int32(aead.Overhead()))
+		fixedLengthEncrypted := out.Extend(fixedLengthHeaderBuffer.Len() + int32(aead.Overhead()))
 		aead.Seal(fixedLengthEncrypted[:0], requestNonce(), fixedLengthHeaderBuffer.Bytes(), nil)
 		fmt.Println("fixed length header", hex.EncodeToString(fixedLengthEncrypted))
 	}
 	{
-		variableLengthEncrypted := Out.Extend(variableLengthHeaderBuffer.Len() + int32(aead.Overhead()))
+		variableLengthEncrypted := out.Extend(variableLengthHeaderBuffer.Len() + int32(aead.Overhead()))
 		aead.Seal(variableLengthEncrypted[:0], requestNonce(), variableLengthHeaderBuffer.Bytes(), nil)
 	}
 	return nil
 }
 
-func (t *TCPRequest) DecodeTCPResponseHeader(effectivePsk []byte, In io.Reader) error {
+func (t *TCPRequest) DecodeTCPResponseHeader(effectivePsk []byte, in io.Reader) error {
 	var preSessionKeyHeader TCPResponseHeader1PreSessionKey
 	preSessionKeyHeader.Salt = newRequestSaltWithLength(t.method.GetSessionSubKeyAndSaltLength())
 	{
-		err := struc.Unpack(In, &preSessionKeyHeader)
+		err := struc.Unpack(in, &preSessionKeyHeader)
 		if err != nil {
 			return newError("failed to unpack pre session key header").Base(err)
 		}
 	}
-	var s2cSalt = preSessionKeyHeader.Salt.Bytes()
+	s2cSalt := preSessionKeyHeader.Salt.Bytes()
 	t.s2cSalt = preSessionKeyHeader.Salt
-	var sessionKey = make([]byte, t.method.GetSessionSubKeyAndSaltLength())
+	sessionKey := make([]byte, t.method.GetSessionSubKeyAndSaltLength())
 	{
 		err := t.keyDerivation.GetSessionSubKey(effectivePsk, s2cSalt, sessionKey)
 		if err != nil {
@@ -179,17 +181,17 @@ func (t *TCPRequest) DecodeTCPResponseHeader(effectivePsk []byte, In io.Reader) 
 	}
 	t.s2cAEAD = aead
 
-	var fixedLengthHeaderEncryptedBuffer = buf.New()
+	fixedLengthHeaderEncryptedBuffer := buf.New()
 	defer fixedLengthHeaderEncryptedBuffer.Release()
 	{
-		_, err := fixedLengthHeaderEncryptedBuffer.ReadFullFrom(In, 11+int32(t.method.GetSessionSubKeyAndSaltLength())+int32(aead.Overhead()))
+		_, err := fixedLengthHeaderEncryptedBuffer.ReadFullFrom(in, 11+int32(t.method.GetSessionSubKeyAndSaltLength())+int32(aead.Overhead()))
 		if err != nil {
 			return newError("failed to read fixed length header encrypted").Base(err)
 		}
 	}
 	s2cNonce := crypto.GenerateInitialAEADNonce()
 	t.s2cNonce = s2cNonce
-	var fixedLengthHeaderDecryptedBuffer = buf.New()
+	fixedLengthHeaderDecryptedBuffer := buf.New()
 	defer fixedLengthHeaderDecryptedBuffer.Release()
 	{
 		decryptionBuffer := fixedLengthHeaderDecryptedBuffer.Extend(11 + int32(t.method.GetSessionSubKeyAndSaltLength()))
@@ -221,13 +223,13 @@ func (t *TCPRequest) DecodeTCPResponseHeader(effectivePsk []byte, In io.Reader) 
 }
 
 func (t *TCPRequest) CheckC2SConnectionConstraint() error {
-	if bytes.Compare(t.c2sSalt.Bytes(), t.s2cSaltAssert.Bytes()) != 0 {
+	if !bytes.Equal(t.c2sSalt.Bytes(), t.s2cSaltAssert.Bytes()) {
 		return newError("c2s salt not equal to s2c salt assert")
 	}
 	return nil
 }
 
-func (t *TCPRequest) CreateClientS2CReader(In io.Reader, initialPayload *buf.Buffer) (buf.Reader, error) {
+func (t *TCPRequest) CreateClientS2CReader(in io.Reader, initialPayload *buf.Buffer) (buf.Reader, error) {
 	AEADAuthenticator := &crypto.AEADAuthenticator{
 		AEAD:                    t.s2cAEAD,
 		NonceGenerator:          t.s2cNonce,
@@ -236,7 +238,7 @@ func (t *TCPRequest) CreateClientS2CReader(In io.Reader, initialPayload *buf.Buf
 	initialPayloadEncrypted := buf.NewWithSize(65535)
 	defer initialPayloadEncrypted.Release()
 	initialPayloadEncryptedBytes := initialPayloadEncrypted.Extend(int32(t.s2cAEAD.Overhead()) + int32(t.s2cInitialPayloadSize))
-	_, err := io.ReadFull(In, initialPayloadEncryptedBytes)
+	_, err := io.ReadFull(in, initialPayloadEncryptedBytes)
 	if err != nil {
 		return nil, newError("failed to read initial payload").Base(err)
 	}
@@ -247,7 +249,7 @@ func (t *TCPRequest) CreateClientS2CReader(In io.Reader, initialPayload *buf.Buf
 	}
 	return crypto.NewAuthenticationReader(AEADAuthenticator, &crypto.AEADChunkSizeParser{
 		Auth: AEADAuthenticator,
-	}, In, protocol.TransferTypeStream, nil), nil
+	}, in, protocol.TransferTypeStream, nil), nil
 }
 
 func (t *TCPRequest) CreateClientC2SWriter(writer io.Writer) buf.Writer {
