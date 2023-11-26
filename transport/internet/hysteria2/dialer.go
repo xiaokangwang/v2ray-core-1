@@ -56,9 +56,10 @@ func NewHyClient(dest net.Destination, streamSettings *internet.MemoryStreamConf
 		return nil, err
 	}
 
+	config := streamSettings.ProtocolSettings.(*Config)
 	client, err := hy.NewClient(&hy.Config{
 		TLSConfig:  *tlsConfig,
-		Auth:       streamSettings.ProtocolName,
+		Auth:       config.GetPassword(),
 		ServerAddr: serverAddr,
 	})
 	if err != nil {
@@ -87,13 +88,15 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 
 	quicConn := client.GetQuicConn()
 	internetConn := &interConn{
-		stream: stream,
-		local:  quicConn.LocalAddr(),
-		remote: quicConn.RemoteAddr(),
+		stream:   stream,
+		local:    quicConn.LocalAddr(),
+		remote:   quicConn.RemoteAddr(),
+		isClient: true,
 	}
 	return internetConn, nil
 }
 
 func init() {
+	RunningClient = make(map[net.Destination]hy.Client)
 	common.Must(internet.RegisterTransportDialer(protocolName, Dial))
 }
