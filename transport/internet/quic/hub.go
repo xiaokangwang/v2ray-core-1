@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/apernet/quic-go"
+	"github.com/quic-go/quic-go"
 
 	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/net"
@@ -20,7 +20,6 @@ type Listener struct {
 	listener *quic.Listener
 	done     *done.Instance
 	addConn  internet.ConnHandler
-	config   *Config
 }
 
 func (l *Listener) acceptStreams(conn quic.Connection) {
@@ -60,9 +59,9 @@ func (l *Listener) keepAccepting() {
 			if l.done.Done() {
 				break
 			}
+			time.Sleep(time.Second)
 			continue
 		}
-		SetCongestion(conn, l.config)
 		go l.acceptStreams(conn)
 	}
 }
@@ -102,7 +101,13 @@ func Listen(ctx context.Context, address net.Address, port net.Port, streamSetti
 		return nil, err
 	}
 
-	quicConfig := InitQuicConfig()
+	quicConfig := &quic.Config{
+		HandshakeIdleTimeout:  time.Second * 8,
+		MaxIdleTimeout:        time.Second * 45,
+		MaxIncomingStreams:    32,
+		MaxIncomingUniStreams: -1,
+		KeepAlivePeriod:       time.Second * 15,
+	}
 
 	conn, err := wrapSysConn(rawConn.(*net.UDPConn), config)
 	if err != nil {
@@ -126,7 +131,6 @@ func Listen(ctx context.Context, address net.Address, port net.Port, streamSetti
 		rawConn:  conn,
 		listener: qListener,
 		addConn:  handler,
-		config:   config,
 	}
 
 	go listener.keepAccepting()
