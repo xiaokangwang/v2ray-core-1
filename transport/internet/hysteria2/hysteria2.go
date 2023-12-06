@@ -7,12 +7,6 @@ import (
 
 //go:generate go run github.com/v2fly/v2ray-core/v5/common/errors/errorgen
 
-// Here is some modification needs to be done before update quic vendor.
-// * use bytespool in buffer_pool.go
-// * set MaxReceivePacketSize to 1452 - 32 (16 bytes auth, 16 bytes head)
-//
-//
-
 const (
 	protocolName   = "hysteria2"
 	internalDomain = "hysteria2.internal.v2fly.org"

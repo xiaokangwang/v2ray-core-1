@@ -17,7 +17,7 @@ type interConn struct {
 	remote net.Addr
 
 	isClient         bool
-	isWriteFrameType bool
+	isWroteFrameType bool
 }
 
 const (
@@ -74,8 +74,8 @@ func (c *interConn) WriteMultiBuffer(mb buf.MultiBuffer) error {
 }
 
 func (c *interConn) Write(b []byte) (int, error) {
-	if c.isClient && !c.isWriteFrameType {
-		c.isWriteFrameType = true
+	if c.isClient && !c.isWroteFrameType {
+		c.isWroteFrameType = true
 		frameSize := int(quicvarint.Len(FrameTypeTCPRequest))
 		buf := make([]byte, frameSize+len(b))
 		i := varintPut(buf, FrameTypeTCPRequest)
