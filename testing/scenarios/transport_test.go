@@ -29,6 +29,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/transport/internet/domainsocket"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/headers/http"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/headers/wechat"
+	"github.com/v2fly/v2ray-core/v5/transport/internet/hysteria2"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/quic"
 	tcptransport "github.com/v2fly/v2ray-core/v5/transport/internet/tcp"
 )
@@ -384,7 +385,7 @@ func TestVMessQuic(t *testing.T) {
 	}
 }
 
-func TestVMessQuicBBR(t *testing.T) {
+func TestVMessHysteria2(t *testing.T) {
 	tcpServer := tcp.Server{
 		MsgProcessor: xor,
 	}
@@ -406,16 +407,16 @@ func TestVMessQuicBBR(t *testing.T) {
 					PortRange: net.SinglePortRange(serverPort),
 					Listen:    net.NewIPOrDomain(net.LocalHostIP),
 					StreamSettings: &internet.StreamConfig{
-						ProtocolName: "quic",
+						ProtocolName: "hysteria2",
 						TransportSettings: []*internet.TransportConfig{
 							{
-								ProtocolName: "quic",
-								Settings: serial.ToTypedMessage(&quic.Config{
-									Header: serial.ToTypedMessage(&wechat.VideoConfig{}),
+								ProtocolName: "hysteria2",
+								Settings: serial.ToTypedMessage(&hysteria2.Config{
 									Security: &protocol.SecurityConfig{
 										Type: protocol.SecurityType_NONE,
 									},
-									Congestion: &quic.Congestion{Type: "bbr"},
+									Congestion: &hysteria2.Congestion{Type: "bbr"},
+									Password:   "password",
 								}),
 							},
 						},
@@ -466,288 +467,16 @@ func TestVMessQuicBBR(t *testing.T) {
 			{
 				SenderSettings: serial.ToTypedMessage(&proxyman.SenderConfig{
 					StreamSettings: &internet.StreamConfig{
-						ProtocolName: "quic",
+						ProtocolName: "hysteria2",
 						TransportSettings: []*internet.TransportConfig{
 							{
-								ProtocolName: "quic",
-								Settings: serial.ToTypedMessage(&quic.Config{
-									Header: serial.ToTypedMessage(&wechat.VideoConfig{}),
+								ProtocolName: "hysteria2",
+								Settings: serial.ToTypedMessage(&hysteria2.Config{
 									Security: &protocol.SecurityConfig{
 										Type: protocol.SecurityType_NONE,
 									},
-									Congestion: &quic.Congestion{Type: "bbr"},
-								}),
-							},
-						},
-					},
-				}),
-				ProxySettings: serial.ToTypedMessage(&outbound.Config{
-					Receiver: []*protocol.ServerEndpoint{
-						{
-							Address: net.NewIPOrDomain(net.LocalHostIP),
-							Port:    uint32(serverPort),
-							User: []*protocol.User{
-								{
-									Account: serial.ToTypedMessage(&vmess.Account{
-										Id:      userID.String(),
-										AlterId: 0,
-										SecuritySettings: &protocol.SecurityConfig{
-											Type: protocol.SecurityType_AES128_GCM,
-										},
-									}),
-								},
-							},
-						},
-					},
-				}),
-			},
-		},
-	}
-
-	servers, err := InitializeServerConfigs(serverConfig, clientConfig)
-	if err != nil {
-		t.Fatal("Failed to initialize all servers: ", err.Error())
-	}
-	defer CloseAllServers(servers)
-
-	var errg errgroup.Group
-	for i := 0; i < 10; i++ {
-		errg.Go(testTCPConn(clientPort, 10240*1024, time.Second*40))
-	}
-
-	if err := errg.Wait(); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestVMessQuicBrutal(t *testing.T) {
-	tcpServer := tcp.Server{
-		MsgProcessor: xor,
-	}
-	dest, err := tcpServer.Start()
-	common.Must(err)
-	defer tcpServer.Close()
-
-	userID := protocol.NewID(uuid.New())
-	serverPort := udp.PickPort()
-	serverConfig := &core.Config{
-		App: []*anypb.Any{
-			serial.ToTypedMessage(&log.Config{
-				Error: &log.LogSpecification{Level: clog.Severity_Debug, Type: log.LogType_Console},
-			}),
-		},
-		Inbound: []*core.InboundHandlerConfig{
-			{
-				ReceiverSettings: serial.ToTypedMessage(&proxyman.ReceiverConfig{
-					PortRange: net.SinglePortRange(serverPort),
-					Listen:    net.NewIPOrDomain(net.LocalHostIP),
-					StreamSettings: &internet.StreamConfig{
-						ProtocolName: "quic",
-						TransportSettings: []*internet.TransportConfig{
-							{
-								ProtocolName: "quic",
-								Settings: serial.ToTypedMessage(&quic.Config{
-									Header: serial.ToTypedMessage(&wechat.VideoConfig{}),
-									Security: &protocol.SecurityConfig{
-										Type: protocol.SecurityType_NONE,
-									},
-									Congestion: &quic.Congestion{Type: "brutal", SendMbps: 300},
-								}),
-							},
-						},
-					},
-				}),
-				ProxySettings: serial.ToTypedMessage(&inbound.Config{
-					User: []*protocol.User{
-						{
-							Account: serial.ToTypedMessage(&vmess.Account{
-								Id:      userID.String(),
-								AlterId: 0,
-							}),
-						},
-					},
-				}),
-			},
-		},
-		Outbound: []*core.OutboundHandlerConfig{
-			{
-				ProxySettings: serial.ToTypedMessage(&freedom.Config{}),
-			},
-		},
-	}
-
-	clientPort := tcp.PickPort()
-	clientConfig := &core.Config{
-		App: []*anypb.Any{
-			serial.ToTypedMessage(&log.Config{
-				Error: &log.LogSpecification{Level: clog.Severity_Debug, Type: log.LogType_Console},
-			}),
-		},
-		Inbound: []*core.InboundHandlerConfig{
-			{
-				ReceiverSettings: serial.ToTypedMessage(&proxyman.ReceiverConfig{
-					PortRange: net.SinglePortRange(clientPort),
-					Listen:    net.NewIPOrDomain(net.LocalHostIP),
-				}),
-				ProxySettings: serial.ToTypedMessage(&dokodemo.Config{
-					Address: net.NewIPOrDomain(dest.Address),
-					Port:    uint32(dest.Port),
-					NetworkList: &net.NetworkList{
-						Network: []net.Network{net.Network_TCP},
-					},
-				}),
-			},
-		},
-		Outbound: []*core.OutboundHandlerConfig{
-			{
-				SenderSettings: serial.ToTypedMessage(&proxyman.SenderConfig{
-					StreamSettings: &internet.StreamConfig{
-						ProtocolName: "quic",
-						TransportSettings: []*internet.TransportConfig{
-							{
-								ProtocolName: "quic",
-								Settings: serial.ToTypedMessage(&quic.Config{
-									Header: serial.ToTypedMessage(&wechat.VideoConfig{}),
-									Security: &protocol.SecurityConfig{
-										Type: protocol.SecurityType_NONE,
-									},
-									Congestion: &quic.Congestion{Type: "brutal", SendMbps: 300},
-								}),
-							},
-						},
-					},
-				}),
-				ProxySettings: serial.ToTypedMessage(&outbound.Config{
-					Receiver: []*protocol.ServerEndpoint{
-						{
-							Address: net.NewIPOrDomain(net.LocalHostIP),
-							Port:    uint32(serverPort),
-							User: []*protocol.User{
-								{
-									Account: serial.ToTypedMessage(&vmess.Account{
-										Id:      userID.String(),
-										AlterId: 0,
-										SecuritySettings: &protocol.SecurityConfig{
-											Type: protocol.SecurityType_AES128_GCM,
-										},
-									}),
-								},
-							},
-						},
-					},
-				}),
-			},
-		},
-	}
-
-	servers, err := InitializeServerConfigs(serverConfig, clientConfig)
-	if err != nil {
-		t.Fatal("Failed to initialize all servers: ", err.Error())
-	}
-	defer CloseAllServers(servers)
-
-	var errg errgroup.Group
-	for i := 0; i < 10; i++ {
-		errg.Go(testTCPConn(clientPort, 10240*1024, time.Second*40))
-	}
-
-	if err := errg.Wait(); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestVMessQuicBrutalBBR(t *testing.T) {
-	tcpServer := tcp.Server{
-		MsgProcessor: xor,
-	}
-	dest, err := tcpServer.Start()
-	common.Must(err)
-	defer tcpServer.Close()
-
-	userID := protocol.NewID(uuid.New())
-	serverPort := udp.PickPort()
-	serverConfig := &core.Config{
-		App: []*anypb.Any{
-			serial.ToTypedMessage(&log.Config{
-				Error: &log.LogSpecification{Level: clog.Severity_Debug, Type: log.LogType_Console},
-			}),
-		},
-		Inbound: []*core.InboundHandlerConfig{
-			{
-				ReceiverSettings: serial.ToTypedMessage(&proxyman.ReceiverConfig{
-					PortRange: net.SinglePortRange(serverPort),
-					Listen:    net.NewIPOrDomain(net.LocalHostIP),
-					StreamSettings: &internet.StreamConfig{
-						ProtocolName: "quic",
-						TransportSettings: []*internet.TransportConfig{
-							{
-								ProtocolName: "quic",
-								Settings: serial.ToTypedMessage(&quic.Config{
-									Header: serial.ToTypedMessage(&wechat.VideoConfig{}),
-									Security: &protocol.SecurityConfig{
-										Type: protocol.SecurityType_NONE,
-									},
-									Congestion: &quic.Congestion{Type: "bbr"},
-								}),
-							},
-						},
-					},
-				}),
-				ProxySettings: serial.ToTypedMessage(&inbound.Config{
-					User: []*protocol.User{
-						{
-							Account: serial.ToTypedMessage(&vmess.Account{
-								Id:      userID.String(),
-								AlterId: 0,
-							}),
-						},
-					},
-				}),
-			},
-		},
-		Outbound: []*core.OutboundHandlerConfig{
-			{
-				ProxySettings: serial.ToTypedMessage(&freedom.Config{}),
-			},
-		},
-	}
-
-	clientPort := tcp.PickPort()
-	clientConfig := &core.Config{
-		App: []*anypb.Any{
-			serial.ToTypedMessage(&log.Config{
-				Error: &log.LogSpecification{Level: clog.Severity_Debug, Type: log.LogType_Console},
-			}),
-		},
-		Inbound: []*core.InboundHandlerConfig{
-			{
-				ReceiverSettings: serial.ToTypedMessage(&proxyman.ReceiverConfig{
-					PortRange: net.SinglePortRange(clientPort),
-					Listen:    net.NewIPOrDomain(net.LocalHostIP),
-				}),
-				ProxySettings: serial.ToTypedMessage(&dokodemo.Config{
-					Address: net.NewIPOrDomain(dest.Address),
-					Port:    uint32(dest.Port),
-					NetworkList: &net.NetworkList{
-						Network: []net.Network{net.Network_TCP},
-					},
-				}),
-			},
-		},
-		Outbound: []*core.OutboundHandlerConfig{
-			{
-				SenderSettings: serial.ToTypedMessage(&proxyman.SenderConfig{
-					StreamSettings: &internet.StreamConfig{
-						ProtocolName: "quic",
-						TransportSettings: []*internet.TransportConfig{
-							{
-								ProtocolName: "quic",
-								Settings: serial.ToTypedMessage(&quic.Config{
-									Header: serial.ToTypedMessage(&wechat.VideoConfig{}),
-									Security: &protocol.SecurityConfig{
-										Type: protocol.SecurityType_NONE,
-									},
-									Congestion: &quic.Congestion{Type: "brutal", SendMbps: 300},
+									Congestion: &hysteria2.Congestion{Type: "bbr"},
+									Password:   "password",
 								}),
 							},
 						},
