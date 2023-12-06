@@ -54,6 +54,8 @@ import (
 	_ "github.com/v2fly/v2ray-core/v5/proxy/vlite/inbound"
 	_ "github.com/v2fly/v2ray-core/v5/proxy/vlite/outbound"
 
+	_ "github.com/v2fly/v2ray-core/v5/proxy/shadowsocks2022"
+
 	// Transports
 	_ "github.com/v2fly/v2ray-core/v5/transport/internet/domainsocket"
 	_ "github.com/v2fly/v2ray-core/v5/transport/internet/grpc"
@@ -110,4 +112,21 @@ import (
 	_ "github.com/v2fly/v2ray-core/v5/proxy/shadowsocks/simplified"
 	_ "github.com/v2fly/v2ray-core/v5/proxy/socks/simplified"
 	_ "github.com/v2fly/v2ray-core/v5/proxy/trojan/simplified"
+
+	// Subscription Supports
+	_ "github.com/v2fly/v2ray-core/v5/app/subscription/subscriptionmanager"
+
+	// Subscription Containers: general purpose
+	_ "github.com/v2fly/v2ray-core/v5/app/subscription/containers/base64urlline"
+	_ "github.com/v2fly/v2ray-core/v5/app/subscription/containers/dataurlsingle"
+	_ "github.com/v2fly/v2ray-core/v5/app/subscription/containers/jsonfieldarray"
+	_ "github.com/v2fly/v2ray-core/v5/app/subscription/containers/jsonfieldarray/jsonified"
+
+	// Subscription Fetchers
+	_ "github.com/v2fly/v2ray-core/v5/app/subscription/documentfetcher/dataurlfetcher"
+	_ "github.com/v2fly/v2ray-core/v5/app/subscription/documentfetcher/httpfetcher"
+
+	// Subscription Entries Converters
+	_ "github.com/v2fly/v2ray-core/v5/app/subscription/entries/nonnative"
+	_ "github.com/v2fly/v2ray-core/v5/app/subscription/entries/outbound" // Natively Supported Outbound Format
 )
