@@ -3,7 +3,6 @@ package hysteria2
 import (
 	"context"
 	"io"
-	"strconv"
 	"time"
 
 	core "github.com/v2fly/v2ray-core/v5"
@@ -15,14 +14,12 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/net/packetaddr"
 	"github.com/v2fly/v2ray-core/v5/common/protocol"
 	udp_proto "github.com/v2fly/v2ray-core/v5/common/protocol/udp"
-	"github.com/v2fly/v2ray-core/v5/common/retry"
 	"github.com/v2fly/v2ray-core/v5/common/session"
 	"github.com/v2fly/v2ray-core/v5/common/signal"
 	"github.com/v2fly/v2ray-core/v5/common/task"
 	"github.com/v2fly/v2ray-core/v5/features/policy"
 	"github.com/v2fly/v2ray-core/v5/features/routing"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
-	"github.com/v2fly/v2ray-core/v5/transport/internet/tls"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/udp"
 )
 
@@ -36,7 +33,6 @@ func init() {
 type Server struct {
 	policyManager  policy.Manager
 	validator      *Validator
-	fallbacks      map[string]map[string]*Fallback // or nil
 	packetEncoding packetaddr.PacketAddrType
 }
 
@@ -56,30 +52,8 @@ func NewServer(ctx context.Context, config *ServerConfig) (*Server, error) {
 
 	v := core.MustFromContext(ctx)
 	server := &Server{
-		policyManager:  v.GetFeature(policy.ManagerType()).(policy.Manager),
-		validator:      validator,
-		packetEncoding: config.PacketEncoding,
-	}
-
-	if config.Fallbacks != nil {
-		server.fallbacks = make(map[string]map[string]*Fallback)
-		for _, fb := range config.Fallbacks {
-			if server.fallbacks[fb.Alpn] == nil {
-				server.fallbacks[fb.Alpn] = make(map[string]*Fallback)
-			}
-			server.fallbacks[fb.Alpn][fb.Path] = fb
-		}
-		if server.fallbacks[""] != nil {
-			for alpn, pfb := range server.fallbacks {
-				if alpn != "" { // && alpn != "h2" {
-					for path, fb := range server.fallbacks[""] {
-						if pfb[path] == nil {
-							pfb[path] = fb
-						}
-					}
-				}
-			}
-		}
+		policyManager: v.GetFeature(policy.ManagerType()).(policy.Manager),
+		validator:     validator,
 	}
 
 	return server, nil
@@ -130,10 +104,6 @@ func (s *Server) Process(ctx context.Context, network net.Network, conn internet
 
 	var user *protocol.MemoryUser
 
-	apfb := s.fallbacks
-	isfb := apfb != nil
-
-	shouldFallback := false
 	if firstLen < 58 || first.Byte(56) != '\r' {
 		// invalid protocol
 		err = newError("not trojan protocol")
@@ -144,7 +114,6 @@ func (s *Server) Process(ctx context.Context, network net.Network, conn internet
 			Reason: err,
 		})
 
-		shouldFallback = true
 	} else {
 		user = s.validator.Get(hexString(first.BytesTo(56)))
 		if user == nil {
@@ -157,14 +126,7 @@ func (s *Server) Process(ctx context.Context, network net.Network, conn internet
 				Reason: err,
 			})
 
-			shouldFallback = true
 		}
-	}
-
-	if isfb && shouldFallback {
-		return s.fallback(ctx, sid, err, sessionPolicy, conn, iConn, apfb, first, firstLen, bufferedReader)
-	} else if shouldFallback {
-		return newError("invalid protocol or invalid user")
 	}
 
 	clientReader := &ConnReader{Reader: bufferedReader}
@@ -290,152 +252,6 @@ func (s *Server) handleConnection(ctx context.Context, sessionPolicy policy.Sess
 		common.Must(common.Interrupt(link.Reader))
 		common.Must(common.Interrupt(link.Writer))
 		return newError("connection ends").Base(err)
-	}
-
-	return nil
-}
-
-func (s *Server) fallback(ctx context.Context, sid errors.ExportOption, err error, sessionPolicy policy.Session, connection internet.Connection, iConn internet.Connection, apfb map[string]map[string]*Fallback, first *buf.Buffer, firstLen int64, reader buf.Reader) error {
-	if err := connection.SetReadDeadline(time.Time{}); err != nil {
-		newError("unable to set back read deadline").Base(err).AtWarning().WriteToLog(sid)
-	}
-	newError("fallback starts").Base(err).AtInfo().WriteToLog(sid)
-
-	alpn := ""
-	if len(apfb) > 1 || apfb[""] == nil {
-		if tlsConn, ok := iConn.(*tls.Conn); ok {
-			alpn = tlsConn.ConnectionState().NegotiatedProtocol
-			newError("realAlpn = " + alpn).AtInfo().WriteToLog(sid)
-		}
-		if apfb[alpn] == nil {
-			alpn = ""
-		}
-	}
-	pfb := apfb[alpn]
-	if pfb == nil {
-		return newError(`failed to find the default "alpn" config`).AtWarning()
-	}
-
-	path := ""
-	if len(pfb) > 1 || pfb[""] == nil {
-		if firstLen >= 18 && first.Byte(4) != '*' { // not h2c
-			firstBytes := first.Bytes()
-			for i := 4; i <= 8; i++ { // 5 -> 9
-				if firstBytes[i] == '/' && firstBytes[i-1] == ' ' {
-					search := len(firstBytes)
-					if search > 64 {
-						search = 64 // up to about 60
-					}
-					for j := i + 1; j < search; j++ {
-						k := firstBytes[j]
-						if k == '\r' || k == '\n' { // avoid logging \r or \n
-							break
-						}
-						if k == ' ' {
-							path = string(firstBytes[i:j])
-							newError("realPath = " + path).AtInfo().WriteToLog(sid)
-							if pfb[path] == nil {
-								path = ""
-							}
-							break
-						}
-					}
-					break
-				}
-			}
-		}
-	}
-	fb := pfb[path]
-	if fb == nil {
-		return newError(`failed to find the default "path" config`).AtWarning()
-	}
-
-	ctx, cancel := context.WithCancel(ctx)
-	timer := signal.CancelAfterInactivity(ctx, cancel, sessionPolicy.Timeouts.ConnectionIdle)
-	ctx = policy.ContextWithBufferPolicy(ctx, sessionPolicy.Buffer)
-
-	var conn net.Conn
-	if err := retry.ExponentialBackoff(5, 100).On(func() error {
-		var dialer net.Dialer
-		conn, err = dialer.DialContext(ctx, fb.Type, fb.Dest)
-		if err != nil {
-			return err
-		}
-		return nil
-	}); err != nil {
-		return newError("failed to dial to " + fb.Dest).Base(err).AtWarning()
-	}
-	defer conn.Close()
-
-	serverReader := buf.NewReader(conn)
-	serverWriter := buf.NewWriter(conn)
-
-	postRequest := func() error {
-		defer timer.SetTimeout(sessionPolicy.Timeouts.DownlinkOnly)
-		if fb.Xver != 0 {
-			remoteAddr, remotePort, err := net.SplitHostPort(connection.RemoteAddr().String())
-			if err != nil {
-				return err
-			}
-			localAddr, localPort, err := net.SplitHostPort(connection.LocalAddr().String())
-			if err != nil {
-				return err
-			}
-			ipv4 := true
-			for i := 0; i < len(remoteAddr); i++ {
-				if remoteAddr[i] == ':' {
-					ipv4 = false
-					break
-				}
-			}
-			pro := buf.New()
-			defer pro.Release()
-			switch fb.Xver {
-			case 1:
-				if ipv4 {
-					common.Must2(pro.Write([]byte("PROXY TCP4 " + remoteAddr + " " + localAddr + " " + remotePort + " " + localPort + "\r\n")))
-				} else {
-					common.Must2(pro.Write([]byte("PROXY TCP6 " + remoteAddr + " " + localAddr + " " + remotePort + " " + localPort + "\r\n")))
-				}
-			case 2:
-				common.Must2(pro.Write([]byte("\x0D\x0A\x0D\x0A\x00\x0D\x0A\x51\x55\x49\x54\x0A\x21"))) // signature + v2 + PROXY
-				if ipv4 {
-					common.Must2(pro.Write([]byte("\x11\x00\x0C"))) // AF_INET + STREAM + 12 bytes
-					common.Must2(pro.Write(net.ParseIP(remoteAddr).To4()))
-					common.Must2(pro.Write(net.ParseIP(localAddr).To4()))
-				} else {
-					common.Must2(pro.Write([]byte("\x21\x00\x24"))) // AF_INET6 + STREAM + 36 bytes
-					common.Must2(pro.Write(net.ParseIP(remoteAddr).To16()))
-					common.Must2(pro.Write(net.ParseIP(localAddr).To16()))
-				}
-				p1, _ := strconv.ParseUint(remotePort, 10, 16)
-				p2, _ := strconv.ParseUint(localPort, 10, 16)
-				common.Must2(pro.Write([]byte{byte(p1 >> 8), byte(p1), byte(p2 >> 8), byte(p2)}))
-			}
-			if err := serverWriter.WriteMultiBuffer(buf.MultiBuffer{pro}); err != nil {
-				return newError("failed to set PROXY protocol v", fb.Xver).Base(err).AtWarning()
-			}
-		}
-		if err := buf.Copy(reader, serverWriter, buf.UpdateActivity(timer)); err != nil {
-			return newError("failed to fallback request payload").Base(err).AtInfo()
-		}
-		return nil
-	}
-
-	writer := buf.NewWriter(connection)
-
-	getResponse := func() error {
-		defer timer.SetTimeout(sessionPolicy.Timeouts.UplinkOnly)
-		if err := buf.Copy(serverReader, writer, buf.UpdateActivity(timer)); err != nil {
-			return newError("failed to deliver response payload").Base(err).AtInfo()
-		}
-		return nil
-	}
-
-	if err := task.Run(ctx, task.OnSuccess(postRequest, task.Close(serverWriter)), task.OnSuccess(getResponse, task.Close(writer))); err != nil {
-		common.Must(common.Interrupt(serverReader))
-		common.Must(common.Interrupt(serverWriter))
-		return newError("fallback ends").Base(err).AtInfo()
 	}
 
 	return nil

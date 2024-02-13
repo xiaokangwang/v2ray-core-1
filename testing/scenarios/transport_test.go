@@ -20,6 +20,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/uuid"
 	"github.com/v2fly/v2ray-core/v5/proxy/dokodemo"
 	"github.com/v2fly/v2ray-core/v5/proxy/freedom"
+	"github.com/v2fly/v2ray-core/v5/proxy/hysteria2"
 	"github.com/v2fly/v2ray-core/v5/proxy/vmess"
 	"github.com/v2fly/v2ray-core/v5/proxy/vmess/inbound"
 	"github.com/v2fly/v2ray-core/v5/proxy/vmess/outbound"
@@ -29,7 +30,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/transport/internet/domainsocket"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/headers/http"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/headers/wechat"
-	"github.com/v2fly/v2ray-core/v5/transport/internet/hysteria2"
+	hy2_transport "github.com/v2fly/v2ray-core/v5/transport/internet/hysteria2"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/quic"
 	tcptransport "github.com/v2fly/v2ray-core/v5/transport/internet/tcp"
 )
@@ -385,7 +386,13 @@ func TestVMessQuic(t *testing.T) {
 	}
 }
 
-func TestVMessHysteria2BBR(t *testing.T) {
+func TestVMessHysteria2(t *testing.T) {
+	for _, v := range []string{"bbr", "brutal"} {
+		testVMessHysteria2(t, v)
+	}
+}
+
+func testVMessHysteria2(t *testing.T, congestionType string) {
 	tcpServer := tcp.Server{
 		MsgProcessor: xor,
 	}
@@ -411,11 +418,11 @@ func TestVMessHysteria2BBR(t *testing.T) {
 						TransportSettings: []*internet.TransportConfig{
 							{
 								ProtocolName: "hysteria2",
-								Settings: serial.ToTypedMessage(&hysteria2.Config{
+								Settings: serial.ToTypedMessage(&hy2_transport.Config{
 									Security: &protocol.SecurityConfig{
 										Type: protocol.SecurityType_NONE,
 									},
-									Congestion: &hysteria2.Congestion{Type: "bbr"},
+									Congestion: &hy2_transport.Congestion{Type: congestionType, UpMbps: 100, DownMbps: 100},
 									Password:   "password",
 								}),
 							},
@@ -471,11 +478,11 @@ func TestVMessHysteria2BBR(t *testing.T) {
 						TransportSettings: []*internet.TransportConfig{
 							{
 								ProtocolName: "hysteria2",
-								Settings: serial.ToTypedMessage(&hysteria2.Config{
+								Settings: serial.ToTypedMessage(&hy2_transport.Config{
 									Security: &protocol.SecurityConfig{
 										Type: protocol.SecurityType_NONE,
 									},
-									Congestion: &hysteria2.Congestion{Type: "bbr"},
+									Congestion: &hy2_transport.Congestion{Type: congestionType, UpMbps: 100, DownMbps: 100},
 									Password:   "password",
 								}),
 							},
@@ -521,7 +528,7 @@ func TestVMessHysteria2BBR(t *testing.T) {
 	}
 }
 
-func TestVMessHysteria2Brutal(t *testing.T) {
+func TestHysteria2(t *testing.T) {
 	tcpServer := tcp.Server{
 		MsgProcessor: xor,
 	}
@@ -547,24 +554,21 @@ func TestVMessHysteria2Brutal(t *testing.T) {
 						TransportSettings: []*internet.TransportConfig{
 							{
 								ProtocolName: "hysteria2",
-								Settings: serial.ToTypedMessage(&hysteria2.Config{
+								Settings: serial.ToTypedMessage(&hy2_transport.Config{
 									Security: &protocol.SecurityConfig{
 										Type: protocol.SecurityType_NONE,
 									},
-									Congestion: &hysteria2.Congestion{Type: "brutal", UpMbps: 100, DownMbps: 100},
+									Congestion: &hy2_transport.Congestion{Type: "brutal", UpMbps: 100, DownMbps: 100},
 									Password:   "password",
 								}),
 							},
 						},
 					},
 				}),
-				ProxySettings: serial.ToTypedMessage(&inbound.Config{
-					User: []*protocol.User{
+				ProxySettings: serial.ToTypedMessage(&hysteria2.ServerConfig{
+					Users: []*protocol.User{
 						{
-							Account: serial.ToTypedMessage(&vmess.Account{
-								Id:      userID.String(),
-								AlterId: 0,
-							}),
+							Account: serial.ToTypedMessage(&hysteria2.Account{}),
 						},
 					},
 				}),
@@ -607,11 +611,11 @@ func TestVMessHysteria2Brutal(t *testing.T) {
 						TransportSettings: []*internet.TransportConfig{
 							{
 								ProtocolName: "hysteria2",
-								Settings: serial.ToTypedMessage(&hysteria2.Config{
+								Settings: serial.ToTypedMessage(&hy2_transport.Config{
 									Security: &protocol.SecurityConfig{
 										Type: protocol.SecurityType_NONE,
 									},
-									Congestion: &hysteria2.Congestion{Type: "brutal", UpMbps: 100, DownMbps: 100},
+									Congestion: &hy2_transport.Congestion{Type: "brutal", UpMbps: 100, DownMbps: 100},
 									Password:   "password",
 								}),
 							},

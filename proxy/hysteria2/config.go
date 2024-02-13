@@ -17,12 +17,7 @@ type MemoryAccount struct {
 
 // AsAccount implements protocol.AsAccount.
 func (a *Account) AsAccount() (protocol.Account, error) {
-	password := a.GetPassword()
-	key := hexSha224(password)
-	return &MemoryAccount{
-		Password: password,
-		Key:      key,
-	}, nil
+	return &MemoryAccount{}, nil
 }
 
 // Equals implements protocol.Account.Equals().
