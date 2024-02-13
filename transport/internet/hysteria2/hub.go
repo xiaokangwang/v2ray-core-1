@@ -70,14 +70,28 @@ func Listen(ctx context.Context, address net.Address, port net.Port, streamSetti
 		Authenticator:         &Authenticator{Password: config.GetPassword()},
 		StreamHijacker:        listener.ProxyStreamHijacker, // acceptStreams
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	listener.hyServer = hyServer
 	go hyServer.Serve()
 	return listener, nil
 }
 
+func CheckTLSConfig(streamSettings *internet.MemoryStreamConfig, isClient bool) *tls.Config {
+	if streamSettings == nil || streamSettings.SecuritySettings == nil {
+		return nil
+	}
+	tlsSetting := streamSettings.SecuritySettings.(*tls.Config)
+	if tlsSetting.ServerName == "" || (len(tlsSetting.Certificate) == 0 && !isClient) {
+		return nil
+	}
+	return tlsSetting
+}
+
 func GetTLSConfig(streamSettings *internet.MemoryStreamConfig) *hy.TLSConfig {
-	tlsSetting := tls.ConfigFromStreamSettings(streamSettings)
+	tlsSetting := CheckTLSConfig(streamSettings, false)
 	if tlsSetting == nil {
 		tlsSetting = &tls.Config{
 			Certificate: []*tls.Certificate{

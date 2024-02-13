@@ -15,16 +15,16 @@ import (
 var RunningClient map[net.Destination](hy.Client)
 
 func InitTLSConifg(streamSettings *internet.MemoryStreamConfig) (*hy.TLSConfig, error) {
-	tlsConfig := tls.ConfigFromStreamSettings(streamSettings)
-	if tlsConfig == nil {
-		tlsConfig = &tls.Config{
+	tlsSetting := CheckTLSConfig(streamSettings, true)
+	if tlsSetting == nil {
+		tlsSetting = &tls.Config{
 			ServerName:    internalDomain,
 			AllowInsecure: true,
 		}
 	}
 	res := &hy.TLSConfig{
-		ServerName:         tlsConfig.ServerName,
-		InsecureSkipVerify: tlsConfig.AllowInsecure,
+		ServerName:         tlsSetting.ServerName,
+		InsecureSkipVerify: tlsSetting.AllowInsecure,
 	}
 	return res, nil
 }

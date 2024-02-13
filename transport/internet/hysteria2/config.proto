@@ -25,4 +25,5 @@ message Config {
   v2ray.core.common.protocol.SecurityConfig security = 2;
   string password = 3;
   Congestion congestion = 4;
+  bool ignore_client_bandwidth = 5;
 }
