@@ -25,9 +25,9 @@ const (
 	maxVarInt8 = 4611686018427387903
 )
 
-// varintPut is like quicvarint.Append, but instead of appending to a slice,
+// VarintPut is like quicvarint.Append, but instead of appending to a slice,
 // it writes to a fixed-size buffer. Returns the number of bytes written.
-func varintPut(b []byte, i uint64) int {
+func VarintPut(b []byte, i uint64) int {
 	if i <= maxVarInt1 {
 		b[0] = uint8(i)
 		return 1

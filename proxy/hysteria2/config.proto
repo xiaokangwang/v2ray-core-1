@@ -15,8 +15,7 @@ message OBFS {
 }
 
 message Account {
-  string password = 1;
-  OBFS obfs = 2;
+  OBFS obfs = 1;
 }
 
 message ClientConfig {

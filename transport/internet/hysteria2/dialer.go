@@ -97,7 +97,7 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 	// write frame type
 	frameSize := int(quicvarint.Len(FrameTypeTCPRequest))
 	buf := make([]byte, frameSize)
-	varintPut(buf, FrameTypeTCPRequest)
+	VarintPut(buf, FrameTypeTCPRequest)
 	stream.Write(buf)
 	return internetConn, nil
 }

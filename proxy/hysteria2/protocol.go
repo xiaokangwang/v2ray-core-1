@@ -5,9 +5,11 @@ import (
 	"io"
 	gonet "net"
 
+	"github.com/apernet/quic-go/quicvarint"
 	"github.com/v2fly/v2ray-core/v5/common/buf"
 	"github.com/v2fly/v2ray-core/v5/common/net"
 	"github.com/v2fly/v2ray-core/v5/common/protocol"
+	"github.com/v2fly/v2ray-core/v5/transport/internet/hysteria2"
 )
 
 var (
@@ -68,36 +70,27 @@ func (c *ConnWriter) WriteHeader() error {
 	return nil
 }
 
+func QuicLen(s int) int {
+	return int(quicvarint.Len(uint64(s)))
+}
+
 func (c *ConnWriter) writeHeader() error {
-	buffer := buf.StackNew()
-	defer buffer.Release()
+	padding := "Jimmy Was Here"
+	paddingLen := len(padding)
+	addressAndPort := c.Target.Address.String() + ":" + c.Target.Port.String()
+	addressLen := len(addressAndPort)
+	size := QuicLen(addressLen) + addressLen + QuicLen(paddingLen) + paddingLen
 
-	command := commandTCP
-	if c.Target.Network == net.Network_UDP {
-		command = commandUDP
-	}
+	buf := make([]byte, size)
+	i := hysteria2.VarintPut(buf, uint64(addressLen))
+	i += copy(buf[i:], addressAndPort)
+	i += hysteria2.VarintPut(buf[i:], uint64(paddingLen))
+	copy(buf[i:], padding)
 
-	if _, err := buffer.Write(c.Account.Key); err != nil {
-		return err
-	}
-	if _, err := buffer.Write(crlf); err != nil {
-		return err
-	}
-	if err := buffer.WriteByte(command); err != nil {
-		return err
-	}
-	if err := addrParser.WriteAddressPort(&buffer, c.Target.Address, c.Target.Port); err != nil {
-		return err
-	}
-	if _, err := buffer.Write(crlf); err != nil {
-		return err
-	}
-
-	_, err := c.Writer.Write(buffer.Bytes())
+	_, err := c.Writer.Write(buf)
 	if err == nil {
 		c.headerSent = true
 	}
-
 	return err
 }
 
