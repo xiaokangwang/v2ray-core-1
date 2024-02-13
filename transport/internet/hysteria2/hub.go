@@ -32,10 +32,7 @@ func (l *Listener) Close() error {
 }
 
 func (l *Listener) ProxyStreamHijacker(ft http3.FrameType, conn quic.Connection, stream quic.Stream, err error) (bool, error) {
-	if err != nil {
-		l.Close()
-		return false, err
-	}
+	// err always == nil
 
 	internetConn := &interConn{
 		stream: stream,

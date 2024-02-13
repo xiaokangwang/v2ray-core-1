@@ -2,6 +2,7 @@ package hysteria2_test
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"testing"
 	"time"
@@ -47,7 +48,6 @@ func TestHTTP3Connection(t *testing.T) {
 					fmt.Println(err)
 					return
 				}
-				fmt.Println(len(b.Bytes()))
 				common.Must2(conn.Write(b.Bytes()))
 			}
 		}()
@@ -71,15 +71,15 @@ func TestHTTP3Connection(t *testing.T) {
 	common.Must(err)
 	defer conn.Close()
 
-	const N = 1
+	const N = 1000
 	b1 := make([]byte, N)
+	common.Must2(rand.Read(b1))
 	b2 := buf.New()
 
 	common.Must2(conn.Write(b1))
 
 	b2.Clear()
 	common.Must2(b2.ReadFullFrom(conn, N))
-	fmt.Println(b2.Bytes())
 	if r := cmp.Diff(b2.Bytes(), b1); r != "" {
 		t.Error(r)
 	}

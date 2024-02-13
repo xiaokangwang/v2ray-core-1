@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/apernet/quic-go"
-	"github.com/apernet/quic-go/quicvarint"
 
 	"github.com/v2fly/v2ray-core/v5/common/buf"
 	"github.com/v2fly/v2ray-core/v5/common/net"
@@ -15,9 +14,6 @@ type interConn struct {
 	stream quic.Stream
 	local  net.Addr
 	remote net.Addr
-
-	isClient         bool
-	isWroteFrameType bool
 }
 
 const (
@@ -74,14 +70,6 @@ func (c *interConn) WriteMultiBuffer(mb buf.MultiBuffer) error {
 }
 
 func (c *interConn) Write(b []byte) (int, error) {
-	if c.isClient && !c.isWroteFrameType {
-		c.isWroteFrameType = true
-		frameSize := int(quicvarint.Len(FrameTypeTCPRequest))
-		buf := make([]byte, frameSize+len(b))
-		i := varintPut(buf, FrameTypeTCPRequest)
-		copy(buf[i:], b)
-		return c.stream.Write(buf)
-	}
 	return c.stream.Write(b)
 }
 

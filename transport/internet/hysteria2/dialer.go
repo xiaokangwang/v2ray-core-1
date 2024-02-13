@@ -4,6 +4,7 @@ import (
 	"context"
 
 	hy "github.com/apernet/hysteria/core/client"
+	"github.com/apernet/quic-go/quicvarint"
 
 	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/net"
@@ -57,7 +58,7 @@ func NewHyClient(dest net.Destination, streamSettings *internet.MemoryStreamConf
 	}
 
 	config := streamSettings.ProtocolSettings.(*Config)
-	client, err := hy.NewClient(&hy.Config{
+	client, _, err := hy.NewClient(&hy.Config{
 		TLSConfig:  *tlsConfig,
 		Auth:       config.GetPassword(),
 		ServerAddr: serverAddr,
@@ -88,11 +89,16 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 
 	quicConn := client.GetQuicConn()
 	internetConn := &interConn{
-		stream:   stream,
-		local:    quicConn.LocalAddr(),
-		remote:   quicConn.RemoteAddr(),
-		isClient: true,
+		stream: stream,
+		local:  quicConn.LocalAddr(),
+		remote: quicConn.RemoteAddr(),
 	}
+
+	// write frame type
+	frameSize := int(quicvarint.Len(FrameTypeTCPRequest))
+	buf := make([]byte, frameSize)
+	varintPut(buf, FrameTypeTCPRequest)
+	stream.Write(buf)
 	return internetConn, nil
 }
 
