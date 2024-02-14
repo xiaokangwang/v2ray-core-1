@@ -2,9 +2,12 @@ package hysteria2
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"strings"
 	"time"
 
+	hyProtocol "github.com/apernet/hysteria/core/international/protocol"
 	core "github.com/v2fly/v2ray-core/v5"
 	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/buf"
@@ -12,7 +15,6 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/log"
 	"github.com/v2fly/v2ray-core/v5/common/net"
 	"github.com/v2fly/v2ray-core/v5/common/net/packetaddr"
-	"github.com/v2fly/v2ray-core/v5/common/protocol"
 	udp_proto "github.com/v2fly/v2ray-core/v5/common/protocol/udp"
 	"github.com/v2fly/v2ray-core/v5/common/session"
 	"github.com/v2fly/v2ray-core/v5/common/signal"
@@ -55,23 +57,12 @@ func NewServer(ctx context.Context, config *ServerConfig) (*Server, error) {
 		policyManager: v.GetFeature(policy.ManagerType()).(policy.Manager),
 		validator:     validator,
 	}
-
 	return server, nil
-}
-
-// AddUser implements proxy.UserManager.AddUser().
-func (s *Server) AddUser(ctx context.Context, u *protocol.MemoryUser) error {
-	return s.validator.Add(u)
-}
-
-// RemoveUser implements proxy.UserManager.RemoveUser().
-func (s *Server) RemoveUser(ctx context.Context, e string) error {
-	return s.validator.Del(e)
 }
 
 // Network implements proxy.Inbound.Network().
 func (s *Server) Network() []net.Network {
-	return []net.Network{net.Network_TCP, net.Network_UNIX}
+	return []net.Network{net.Network_TCP, net.Network_UDP}
 }
 
 // Process implements proxy.Inbound.Process().
@@ -88,59 +79,32 @@ func (s *Server) Process(ctx context.Context, network net.Network, conn internet
 		return newError("unable to set read deadline").Base(err).AtWarning()
 	}
 
-	first := buf.New()
-	defer first.Release()
+	var reqAddr string
+	var err error
 
-	firstLen, err := first.ReadFrom(conn)
-	if err != nil {
-		return newError("failed to read first request").Base(err)
-	}
-	newError("firstLen = ", firstLen).AtInfo().WriteToLog(sid)
-
-	bufferedReader := &buf.BufferedReader{
-		Reader: buf.NewReader(conn),
-		Buffer: buf.MultiBuffer{first},
-	}
-
-	var user *protocol.MemoryUser
-
-	if firstLen < 58 || first.Byte(56) != '\r' {
-		// invalid protocol
-		err = newError("not trojan protocol")
-		log.Record(&log.AccessMessage{
-			From:   conn.RemoteAddr(),
-			To:     "",
-			Status: log.AccessRejected,
-			Reason: err,
-		})
-
-	} else {
-		user = s.validator.Get(hexString(first.BytesTo(56)))
-		if user == nil {
-			// invalid user, let's fallback
-			err = newError("not a valid user")
-			log.Record(&log.AccessMessage{
-				From:   conn.RemoteAddr(),
-				To:     "",
-				Status: log.AccessRejected,
-				Reason: err,
-			})
-
+	if network == net.Network_TCP {
+		reqAddr, err = hyProtocol.ReadTCPRequest(conn)
+		if err != nil {
+			return newError("failed to parse header").Base(err)
+		}
+		err = hyProtocol.WriteTCPResponse(conn, true, "")
+		if err != nil {
+			return newError("failed to send response").Base(err)
 		}
 	}
-
-	clientReader := &ConnReader{Reader: bufferedReader}
-	if err := clientReader.ParseHeader(); err != nil {
-		log.Record(&log.AccessMessage{
-			From:   conn.RemoteAddr(),
-			To:     "",
-			Status: log.AccessRejected,
-			Reason: err,
-		})
-		return newError("failed to create request from: ", conn.RemoteAddr()).Base(err)
+	bufferedReader := &buf.BufferedReader{
+		Reader: buf.NewReader(conn),
 	}
 
-	destination := clientReader.Target
+	address := strings.Split(reqAddr, ":")
+	port, err := net.PortFromString(address[1])
+	if err != nil {
+		return err
+	}
+	destination := net.Destination{Network: network, Address: net.ParseAddress(address[0]), Port: port}
+
+	clientReader := &ConnReader{Reader: bufferedReader}
+
 	if err := conn.SetReadDeadline(time.Time{}); err != nil {
 		return newError("unable to set read deadline").Base(err).AtWarning()
 	}
@@ -149,8 +113,7 @@ func (s *Server) Process(ctx context.Context, network net.Network, conn internet
 	if inbound == nil {
 		panic("no inbound metadata")
 	}
-	inbound.User = user
-	sessionPolicy = s.policyManager.ForLevel(user.Level)
+	sessionPolicy = s.policyManager.ForLevel(0)
 
 	if destination.Network == net.Network_UDP { // handle udp request
 		return s.handleUDPPayload(ctx, &PacketReader{Reader: clientReader}, &PacketWriter{Writer: conn}, dispatcher)
@@ -161,14 +124,55 @@ func (s *Server) Process(ctx context.Context, network net.Network, conn internet
 		To:     destination,
 		Status: log.AccessAccepted,
 		Reason: "",
-		Email:  user.Email,
 	})
 
 	newError("received request for ", destination).WriteToLog(sid)
 	return s.handleConnection(ctx, sessionPolicy, destination, clientReader, buf.NewWriter(conn), dispatcher)
 }
 
-func (s *Server) handleUDPPayload(ctx context.Context, clientReader *PacketReader, clientWriter *PacketWriter, dispatcher routing.Dispatcher) error {
+func (s *Server) handleConnection(ctx context.Context, sessionPolicy policy.Session,
+	destination net.Destination,
+	clientReader buf.Reader,
+	clientWriter buf.Writer, dispatcher routing.Dispatcher,
+) error {
+	ctx, cancel := context.WithCancel(ctx)
+	timer := signal.CancelAfterInactivity(ctx, cancel, sessionPolicy.Timeouts.ConnectionIdle)
+	ctx = policy.ContextWithBufferPolicy(ctx, sessionPolicy.Buffer)
+
+	link, err := dispatcher.Dispatch(ctx, destination)
+	if err != nil {
+		return newError("failed to dispatch request to ", destination).Base(err)
+	}
+
+	requestDone := func() error {
+		defer timer.SetTimeout(sessionPolicy.Timeouts.DownlinkOnly)
+
+		if err := buf.Copy(clientReader, link.Writer, buf.UpdateActivity(timer)); err != nil {
+			return newError("failed to transfer request").Base(err)
+		}
+		return nil
+	}
+
+	responseDone := func() error {
+		defer timer.SetTimeout(sessionPolicy.Timeouts.UplinkOnly)
+
+		if err := buf.Copy(link.Reader, clientWriter, buf.UpdateActivity(timer)); err != nil {
+			return newError("failed to write response").Base(err)
+		}
+		return nil
+	}
+
+	requestDonePost := task.OnSuccess(requestDone, task.Close(link.Writer))
+	if err := task.Run(ctx, requestDonePost, responseDone); err != nil {
+		common.Must(common.Interrupt(link.Reader))
+		common.Must(common.Interrupt(link.Writer))
+		return newError("connection ends").Base(err)
+	}
+
+	return nil
+}
+
+func (s *Server) handleUDPPayload(ctx context.Context, clientReader *PacketReader, clientWriter *PacketWriter, dispatcher routing.Dispatcher) error { // {{{
 	udpDispatcherConstructor := udp.NewSplitDispatcher
 	switch s.packetEncoding {
 	case packetaddr.PacketAddrType_None:
@@ -213,46 +217,4 @@ func (s *Server) handleUDPPayload(ctx context.Context, clientReader *PacketReade
 			}
 		}
 	}
-}
-
-func (s *Server) handleConnection(ctx context.Context, sessionPolicy policy.Session,
-	destination net.Destination,
-	clientReader buf.Reader,
-	clientWriter buf.Writer, dispatcher routing.Dispatcher,
-) error {
-	ctx, cancel := context.WithCancel(ctx)
-	timer := signal.CancelAfterInactivity(ctx, cancel, sessionPolicy.Timeouts.ConnectionIdle)
-	ctx = policy.ContextWithBufferPolicy(ctx, sessionPolicy.Buffer)
-
-	link, err := dispatcher.Dispatch(ctx, destination)
-	if err != nil {
-		return newError("failed to dispatch request to ", destination).Base(err)
-	}
-
-	requestDone := func() error {
-		defer timer.SetTimeout(sessionPolicy.Timeouts.DownlinkOnly)
-
-		if err := buf.Copy(clientReader, link.Writer, buf.UpdateActivity(timer)); err != nil {
-			return newError("failed to transfer request").Base(err)
-		}
-		return nil
-	}
-
-	responseDone := func() error {
-		defer timer.SetTimeout(sessionPolicy.Timeouts.UplinkOnly)
-
-		if err := buf.Copy(link.Reader, clientWriter, buf.UpdateActivity(timer)); err != nil {
-			return newError("failed to write response").Base(err)
-		}
-		return nil
-	}
-
-	requestDonePost := task.OnSuccess(requestDone, task.Close(link.Writer))
-	if err := task.Run(ctx, requestDonePost, responseDone); err != nil {
-		common.Must(common.Interrupt(link.Reader))
-		common.Must(common.Interrupt(link.Writer))
-		return newError("connection ends").Base(err)
-	}
-
-	return nil
-}
+} // }}}

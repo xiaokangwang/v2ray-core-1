@@ -182,54 +182,11 @@ func (w *PacketWriter) writePacket(payload []byte, dest net.Destination) (int, e
 // ConnReader is TCP Connection Reader Wrapper for trojan protocol
 type ConnReader struct {
 	io.Reader
-	Target       net.Destination
-	headerParsed bool
-}
-
-// ParseHeader parses the trojan protocol header
-func (c *ConnReader) ParseHeader() error {
-	var crlf [2]byte
-	var command [1]byte
-	var hash [56]byte
-	if _, err := io.ReadFull(c.Reader, hash[:]); err != nil {
-		return newError("failed to read user hash").Base(err)
-	}
-
-	if _, err := io.ReadFull(c.Reader, crlf[:]); err != nil {
-		return newError("failed to read crlf").Base(err)
-	}
-
-	if _, err := io.ReadFull(c.Reader, command[:]); err != nil {
-		return newError("failed to read command").Base(err)
-	}
-
-	network := net.Network_TCP
-	if command[0] == commandUDP {
-		network = net.Network_UDP
-	}
-
-	addr, port, err := addrParser.ReadAddressPort(nil, c.Reader)
-	if err != nil {
-		return newError("failed to read address and port").Base(err)
-	}
-	c.Target = net.Destination{Network: network, Address: addr, Port: port}
-
-	if _, err := io.ReadFull(c.Reader, crlf[:]); err != nil {
-		return newError("failed to read crlf").Base(err)
-	}
-
-	c.headerParsed = true
-	return nil
+	Target net.Destination
 }
 
 // Read implements io.Reader
 func (c *ConnReader) Read(p []byte) (int, error) {
-	if !c.headerParsed {
-		if err := c.ParseHeader(); err != nil {
-			return 0, err
-		}
-	}
-
 	return c.Reader.Read(p)
 }
 

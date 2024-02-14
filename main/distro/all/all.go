@@ -54,6 +54,7 @@ import (
 	_ "github.com/v2fly/v2ray-core/v5/proxy/vlite/inbound"
 	_ "github.com/v2fly/v2ray-core/v5/proxy/vlite/outbound"
 
+	_ "github.com/v2fly/v2ray-core/v5/proxy/hysteria2"
 	_ "github.com/v2fly/v2ray-core/v5/proxy/shadowsocks2022"
 
 	// Transports
