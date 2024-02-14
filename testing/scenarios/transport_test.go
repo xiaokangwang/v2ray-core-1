@@ -1,6 +1,7 @@
 package scenarios
 
 import (
+	"fmt"
 	"os"
 	"runtime"
 	"testing"
@@ -528,7 +529,7 @@ func testVMessHysteria2(t *testing.T, congestionType string) {
 	}
 }
 
-func TestHysteria2(t *testing.T) {
+func TestHysteria2Offical(t *testing.T) {
 	tcpServer := tcp.Server{
 		MsgProcessor: xor,
 	}
@@ -537,6 +538,7 @@ func TestHysteria2(t *testing.T) {
 	defer tcpServer.Close()
 
 	serverPort := udp.PickPort()
+	fmt.Println(serverPort)
 	serverConfig := &core.Config{
 		App: []*anypb.Any{
 			serial.ToTypedMessage(&log.Config{
