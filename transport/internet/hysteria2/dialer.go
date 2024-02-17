@@ -8,6 +8,7 @@ import (
 
 	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/net"
+	"github.com/v2fly/v2ray-core/v5/common/session"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/tls"
 )
@@ -80,6 +81,12 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	outbound := session.OutboundFromContext(ctx)
+	network := outbound.Target.Network
+	if network == net.Network_TCP {
+
 	}
 
 	stream, err := client.OpenStream()

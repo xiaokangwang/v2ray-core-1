@@ -62,7 +62,7 @@ func (c *ConnWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 }
 
 func (c *ConnWriter) WriteHeader() error {
-	if !c.headerSent {
+	if !c.headerSent && c.Target.Network != net.Network_TCP {
 		if err := c.writeHeader(); err != nil {
 			return err
 		}
