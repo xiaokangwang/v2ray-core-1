@@ -44,8 +44,6 @@ require (
 	lukechampine.com/blake3 v1.2.1
 )
 
-replace github.com/apernet/hysteria/core => ../hysteria/core
-
 require (
 	github.com/aead/cmac v0.0.0-20160719120800-7af84192f0b1 // indirect
 	github.com/ajg/form v1.5.1 // indirect
@@ -91,3 +89,6 @@ require (
 )
 
 replace github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40 => github.com/xiaokangwang/struc v0.0.0-20231031203518-0e381172f248
+
+//replace github.com/apernet/hysteria/core v1.3.5 => github.com/JimmyHuang454/hysteria/core v0.0.0-20240213213233-46654e2e94de
+replace github.com/apernet/hysteria/core v1.3.5 => ../hysteria/core
