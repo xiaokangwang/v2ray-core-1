@@ -5,11 +5,11 @@ import (
 	"io"
 	gonet "net"
 
+	hyProtocol "github.com/apernet/hysteria/core/international/protocol"
 	"github.com/apernet/quic-go/quicvarint"
 	"github.com/v2fly/v2ray-core/v5/common/buf"
 	"github.com/v2fly/v2ray-core/v5/common/net"
 	"github.com/v2fly/v2ray-core/v5/common/protocol"
-	"github.com/v2fly/v2ray-core/v5/transport/internet/hysteria2"
 )
 
 var (
@@ -82,9 +82,9 @@ func (c *ConnWriter) writeHeader() error {
 	size := QuicLen(addressLen) + addressLen + QuicLen(paddingLen) + paddingLen
 
 	buf := make([]byte, size)
-	i := hysteria2.VarintPut(buf, uint64(addressLen))
+	i := hyProtocol.VarintPut(buf, uint64(addressLen))
 	i += copy(buf[i:], addressAndPort)
-	i += hysteria2.VarintPut(buf[i:], uint64(paddingLen))
+	i += hyProtocol.VarintPut(buf[i:], uint64(paddingLen))
 	copy(buf[i:], padding)
 
 	_, err := c.Writer.Write(buf)

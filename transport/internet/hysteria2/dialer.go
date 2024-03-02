@@ -4,6 +4,7 @@ import (
 	"context"
 
 	hy "github.com/apernet/hysteria/core/client"
+	hyProtocol "github.com/apernet/hysteria/core/international/protocol"
 	"github.com/apernet/quic-go/quicvarint"
 
 	"github.com/v2fly/v2ray-core/v5/common"
@@ -91,6 +92,7 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 
 	if network == net.Network_UDP {
 		// TODO:  <02-03-24, yourname> //
+		client.UDP()
 	}
 
 	stream, err := client.OpenStream()
@@ -99,7 +101,7 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 	}
 
 	quicConn := client.GetQuicConn()
-	internetConn := &interConn{
+	tcpConn := &TCPConn{
 		stream: stream,
 		local:  quicConn.LocalAddr(),
 		remote: quicConn.RemoteAddr(),
@@ -108,9 +110,9 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 	// write frame type
 	frameSize := int(quicvarint.Len(FrameTypeTCPRequest))
 	buf := make([]byte, frameSize)
-	VarintPut(buf, FrameTypeTCPRequest)
+	hyProtocol.VarintPut(buf, FrameTypeTCPRequest)
 	stream.Write(buf)
-	return internetConn, nil
+	return tcpConn, nil
 }
 
 func init() {
