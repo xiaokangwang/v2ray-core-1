@@ -84,9 +84,13 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 	}
 
 	outbound := session.OutboundFromContext(ctx)
-	network := outbound.Target.Network
-	if network == net.Network_TCP {
+	network := net.Network_TCP
+	if outbound != nil {
+		network = outbound.Target.Network
+	}
 
+	if network == net.Network_UDP {
+		// TODO:  <02-03-24, yourname> //
 	}
 
 	stream, err := client.OpenStream()
