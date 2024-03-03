@@ -66,8 +66,9 @@ func Listen(ctx context.Context, address net.Address, port net.Port, streamSetti
 	hyServer, err := hy.NewServer(&hy.Config{
 		Conn:                  rawConn,
 		TLSConfig:             *GetTLSConfig(streamSettings),
-		IgnoreClientBandwidth: false,
 		Authenticator:         &Authenticator{Password: config.GetPassword()},
+		IgnoreClientBandwidth: config.GetIgnoreClientBandwidth(),
+		DisableUDP:            !config.GetUdp(),
 		StreamHijacker:        listener.ProxyStreamHijacker, // acceptStreams
 	})
 	if err != nil {

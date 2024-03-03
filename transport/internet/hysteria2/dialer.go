@@ -14,6 +14,10 @@ import (
 	"github.com/v2fly/v2ray-core/v5/transport/internet/tls"
 )
 
+const (
+	FrameTypeTCPRequest = 0x401
+)
+
 var RunningClient map[net.Destination](hy.Client)
 
 func InitTLSConifg(streamSettings *internet.MemoryStreamConfig) (*hy.TLSConfig, error) {

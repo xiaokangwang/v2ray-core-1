@@ -15,10 +15,6 @@ type TCPConn struct {
 	remote net.Addr
 }
 
-const (
-	FrameTypeTCPRequest = 0x401
-)
-
 func (c *TCPConn) Read(b []byte) (int, error) {
 	return c.stream.Read(b)
 }
