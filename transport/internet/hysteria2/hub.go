@@ -34,12 +34,12 @@ func (l *Listener) Close() error {
 func (l *Listener) ProxyStreamHijacker(ft http3.FrameType, conn quic.Connection, stream quic.Stream, err error) (bool, error) {
 	// err always == nil
 
-	internetConn := &interConn{
+	tcpConn := &TCPConn{
 		stream: stream,
 		local:  conn.LocalAddr(),
 		remote: conn.RemoteAddr(),
 	}
-	l.addConn(internetConn)
+	l.addConn(tcpConn)
 	return true, nil
 }
 
@@ -66,8 +66,9 @@ func Listen(ctx context.Context, address net.Address, port net.Port, streamSetti
 	hyServer, err := hy.NewServer(&hy.Config{
 		Conn:                  rawConn,
 		TLSConfig:             *GetTLSConfig(streamSettings),
-		IgnoreClientBandwidth: false,
 		Authenticator:         &Authenticator{Password: config.GetPassword()},
+		IgnoreClientBandwidth: config.GetIgnoreClientBandwidth(),
+		DisableUDP:            !config.GetUdp(),
 		StreamHijacker:        listener.ProxyStreamHijacker, // acceptStreams
 	})
 	if err != nil {
