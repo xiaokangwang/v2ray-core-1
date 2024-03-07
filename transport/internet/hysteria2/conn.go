@@ -1,6 +1,7 @@
 package hysteria2
 
 import (
+	"context"
 	"time"
 
 	"github.com/apernet/quic-go"
@@ -18,6 +19,9 @@ type HyConn struct {
 }
 
 func (c *HyConn) Read(b []byte) (int, error) {
+	if c.UseUDPExtension {
+		c.quicConn.ReceiveDatagram(context.Background())
+	}
 	return c.stream.Read(b)
 }
 
@@ -29,10 +33,16 @@ func (c *HyConn) WriteMultiBuffer(mb buf.MultiBuffer) error {
 }
 
 func (c *HyConn) Write(b []byte) (int, error) {
+	if c.UseUDPExtension {
+		return len(b), c.quicConn.SendDatagram(b)
+	}
 	return c.stream.Write(b)
 }
 
 func (c *HyConn) Close() error {
+	if c.UseUDPExtension {
+		return nil
+	}
 	return c.stream.Close()
 }
 

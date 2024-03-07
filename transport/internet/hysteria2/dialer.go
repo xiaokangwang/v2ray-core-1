@@ -103,7 +103,10 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 		quicConn: quicConn,
 	}
 
-	if config.GetUdp() && network == net.Network_UDP {
+	if network == net.Network_UDP {
+		if !config.GetUdp() {
+			return nil, newError("UDP extension is not enabled.")
+		}
 		conn.UseUDPExtension = true
 		return conn, nil
 	}
