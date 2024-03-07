@@ -34,7 +34,7 @@ func (l *Listener) Close() error {
 func (l *Listener) ProxyStreamHijacker(ft http3.FrameType, conn quic.Connection, stream quic.Stream, err error) (bool, error) {
 	// err always == nil
 
-	tcpConn := &TCPConn{
+	tcpConn := &HyConn{
 		stream: stream,
 		local:  conn.LocalAddr(),
 		remote: conn.RemoteAddr(),

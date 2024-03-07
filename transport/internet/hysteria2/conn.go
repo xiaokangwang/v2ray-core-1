@@ -9,47 +9,49 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/net"
 )
 
-type TCPConn struct {
-	stream quic.Stream
-	local  net.Addr
-	remote net.Addr
+type HyConn struct {
+	UseUDPExtension bool
+	quicConn        quic.Connection
+	stream          quic.Stream
+	local           net.Addr
+	remote          net.Addr
 }
 
-func (c *TCPConn) Read(b []byte) (int, error) {
+func (c *HyConn) Read(b []byte) (int, error) {
 	return c.stream.Read(b)
 }
 
-func (c *TCPConn) WriteMultiBuffer(mb buf.MultiBuffer) error {
+func (c *HyConn) WriteMultiBuffer(mb buf.MultiBuffer) error {
 	mb = buf.Compact(mb)
 	mb, err := buf.WriteMultiBuffer(c, mb)
 	buf.ReleaseMulti(mb)
 	return err
 }
 
-func (c *TCPConn) Write(b []byte) (int, error) {
+func (c *HyConn) Write(b []byte) (int, error) {
 	return c.stream.Write(b)
 }
 
-func (c *TCPConn) Close() error {
+func (c *HyConn) Close() error {
 	return c.stream.Close()
 }
 
-func (c *TCPConn) LocalAddr() net.Addr {
+func (c *HyConn) LocalAddr() net.Addr {
 	return c.local
 }
 
-func (c *TCPConn) RemoteAddr() net.Addr {
+func (c *HyConn) RemoteAddr() net.Addr {
 	return c.remote
 }
 
-func (c *TCPConn) SetDeadline(t time.Time) error {
+func (c *HyConn) SetDeadline(t time.Time) error {
 	return c.stream.SetDeadline(t)
 }
 
-func (c *TCPConn) SetReadDeadline(t time.Time) error {
+func (c *HyConn) SetReadDeadline(t time.Time) error {
 	return c.stream.SetReadDeadline(t)
 }
 
-func (c *TCPConn) SetWriteDeadline(t time.Time) error {
+func (c *HyConn) SetWriteDeadline(t time.Time) error {
 	return c.stream.SetWriteDeadline(t)
 }

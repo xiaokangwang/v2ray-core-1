@@ -78,6 +78,8 @@ func NewHyClient(dest net.Destination, streamSettings *internet.MemoryStreamConf
 }
 
 func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (internet.Connection, error) {
+	config := streamSettings.ProtocolSettings.(*Config)
+
 	var client hy.Client
 	client, found := RunningClient[dest]
 	if !found {
@@ -87,6 +89,7 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 			return nil, err
 		}
 	}
+	quicConn := client.GetQuicConn()
 
 	outbound := session.OutboundFromContext(ctx)
 	network := net.Network_TCP
@@ -94,29 +97,32 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 		network = outbound.Target.Network
 	}
 
-	if network == net.Network_UDP {
-		// TODO:  <02-03-24, yourname> //
-		client.UDP()
+	conn := &HyConn{
+		local:    quicConn.LocalAddr(),
+		remote:   quicConn.RemoteAddr(),
+		quicConn: quicConn,
+	}
+
+	if config.GetUdp() && network == net.Network_UDP {
+		conn.UseUDPExtension = true
+		return conn, nil
 	}
 
 	stream, err := client.OpenStream()
 	if err != nil {
+		delete(RunningClient, dest)
+		client.Close()
 		return nil, err
 	}
 
-	quicConn := client.GetQuicConn()
-	tcpConn := &TCPConn{
-		stream: stream,
-		local:  quicConn.LocalAddr(),
-		remote: quicConn.RemoteAddr(),
-	}
+	conn.stream = stream
 
-	// write frame type
+	// write TCP frame type
 	frameSize := int(quicvarint.Len(FrameTypeTCPRequest))
 	buf := make([]byte, frameSize)
 	hyProtocol.VarintPut(buf, FrameTypeTCPRequest)
 	stream.Write(buf)
-	return tcpConn, nil
+	return conn, nil
 }
 
 func init() {
