@@ -99,16 +99,16 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 		}
 	}
 	quicConn := client.GetQuicConn()
+	conn := &HyConn{
+		local:  quicConn.LocalAddr(),
+		remote: quicConn.RemoteAddr(),
+	}
 
 	outbound := session.OutboundFromContext(ctx)
 	network := net.Network_TCP
 	if outbound != nil {
 		network = outbound.Target.Network
-	}
-
-	conn := &HyConn{
-		local:  quicConn.LocalAddr(),
-		remote: quicConn.RemoteAddr(),
+		conn.Target = outbound.Target
 	}
 
 	if network == net.Network_UDP {

@@ -13,6 +13,7 @@ import (
 type HyConn struct {
 	IsUDPExtension bool
 	UDPSession     hy.HyUDPConn
+	Target         net.Destination
 
 	stream quic.Stream
 	local  net.Addr
@@ -40,7 +41,7 @@ func (c *HyConn) WriteMultiBuffer(mb buf.MultiBuffer) error {
 
 func (c *HyConn) Write(b []byte) (int, error) {
 	if c.IsUDPExtension {
-		return len(b), c.UDPSession.Send(b, "")
+		return len(b), c.UDPSession.Send(b, c.Target.NetAddr())
 	}
 	return c.stream.Write(b)
 }
