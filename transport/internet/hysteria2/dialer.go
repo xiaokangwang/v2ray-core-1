@@ -77,13 +77,22 @@ func NewHyClient(dest net.Destination, streamSettings *internet.MemoryStreamConf
 	return client, nil
 }
 
+func CloseHyClient(dest net.Destination) error {
+	client, found := RunningClient[dest]
+	if found {
+		defer delete(RunningClient, dest)
+		return client.Close()
+	}
+	return nil
+}
+
 func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (internet.Connection, error) {
 	config := streamSettings.ProtocolSettings.(*Config)
 
 	var client hy.Client
+	var err error
 	client, found := RunningClient[dest]
 	if !found {
-		var err error
 		client, err = NewHyClient(dest, streamSettings)
 		if err != nil {
 			return nil, err
@@ -98,33 +107,34 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 	}
 
 	conn := &HyConn{
-		local:    quicConn.LocalAddr(),
-		remote:   quicConn.RemoteAddr(),
-		quicConn: quicConn,
+		local:  quicConn.LocalAddr(),
+		remote: quicConn.RemoteAddr(),
 	}
 
 	if network == net.Network_UDP {
 		if !config.GetUdp() {
 			return nil, newError("UDP extension is not enabled.")
 		}
-		conn.UseUDPExtension = true
+		conn.IsUDPExtension = true
+		conn.UDPSession, err = client.UDP()
+		if err != nil {
+			CloseHyClient(dest)
+			return nil, err
+		}
 		return conn, nil
 	}
 
-	stream, err := client.OpenStream()
+	conn.stream, err = client.OpenStream()
 	if err != nil {
-		delete(RunningClient, dest)
-		client.Close()
+		CloseHyClient(dest)
 		return nil, err
 	}
-
-	conn.stream = stream
 
 	// write TCP frame type
 	frameSize := int(quicvarint.Len(FrameTypeTCPRequest))
 	buf := make([]byte, frameSize)
 	hyProtocol.VarintPut(buf, FrameTypeTCPRequest)
-	stream.Write(buf)
+	conn.stream.Write(buf)
 	return conn, nil
 }
 

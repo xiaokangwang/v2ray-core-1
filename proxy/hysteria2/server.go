@@ -21,6 +21,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/features/policy"
 	"github.com/v2fly/v2ray-core/v5/features/routing"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
+	hy2_transport "github.com/v2fly/v2ray-core/v5/transport/internet/hysteria2"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/udp"
 )
 
@@ -68,9 +69,9 @@ func (s *Server) Network() []net.Network {
 func (s *Server) Process(ctx context.Context, network net.Network, conn internet.Connection, dispatcher routing.Dispatcher) error {
 	sid := session.ExportIDToError(ctx)
 
-	iConn := conn
-	if statConn, ok := iConn.(*internet.StatCouterConnection); ok {
-		iConn = statConn.Connection
+	hyConn, IsHy2Transport := conn.(*hy2_transport.HyConn)
+	if IsHy2Transport && hyConn.IsUDPExtension {
+		network = net.Network_UDP
 	}
 
 	sessionPolicy := s.policyManager.ForLevel(0)

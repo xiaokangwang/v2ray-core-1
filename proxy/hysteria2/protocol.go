@@ -62,7 +62,7 @@ func (c *ConnWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 }
 
 func (c *ConnWriter) WriteHeader() error {
-	if !c.headerSent && c.Target.Network != net.Network_TCP {
+	if !c.headerSent {
 		if err := c.writeHeader(); err != nil {
 			return err
 		}
@@ -94,7 +94,7 @@ func (c *ConnWriter) writeHeader() error {
 	return err
 }
 
-// PacketWriter UDP Connection Writer Wrapper for trojan protocol
+// PacketWriter UDP Connection Writer Wrapper
 type PacketWriter struct {
 	io.Writer
 	Target net.Destination
@@ -137,46 +137,12 @@ func (w *PacketWriter) WriteTo(payload []byte, addr gonet.Addr) (int, error) {
 }
 
 func (w *PacketWriter) writePacket(payload []byte, dest net.Destination) (int, error) { // nolint: unparam
-	var addrPortLen int32
-	switch dest.Address.Family() {
-	case net.AddressFamilyDomain:
-		if protocol.IsDomainTooLong(dest.Address.Domain()) {
-			return 0, newError("Super long domain is not supported: ", dest.Address.Domain())
-		}
-		addrPortLen = 1 + 1 + int32(len(dest.Address.Domain())) + 2
-	case net.AddressFamilyIPv4:
-		addrPortLen = 1 + 4 + 2
-	case net.AddressFamilyIPv6:
-		addrPortLen = 1 + 16 + 2
-	default:
-		panic("Unknown address type.")
-	}
-
-	length := len(payload)
-	lengthBuf := [2]byte{}
-	binary.BigEndian.PutUint16(lengthBuf[:], uint16(length))
-
-	buffer := buf.NewWithSize(addrPortLen + 2 + 2 + int32(length))
-	defer buffer.Release()
-
-	if err := addrParser.WriteAddressPort(buffer, dest.Address, dest.Port); err != nil {
-		return 0, err
-	}
-	if _, err := buffer.Write(lengthBuf[:]); err != nil {
-		return 0, err
-	}
-	if _, err := buffer.Write(crlf); err != nil {
-		return 0, err
-	}
-	if _, err := buffer.Write(payload); err != nil {
-		return 0, err
-	}
-	_, err := w.Write(buffer.Bytes())
+	_, err := w.Write(payload)
 	if err != nil {
 		return 0, err
 	}
 
-	return length, nil
+	return 0, nil
 }
 
 // ConnReader is TCP Connection Reader Wrapper for trojan protocol
@@ -203,7 +169,7 @@ type PacketPayload struct {
 	Buffer buf.MultiBuffer
 }
 
-// PacketReader is UDP Connection Reader Wrapper for trojan protocol
+// PacketReader is UDP Connection Reader Wrapper
 type PacketReader struct {
 	io.Reader
 }

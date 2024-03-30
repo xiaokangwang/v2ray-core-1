@@ -92,28 +92,26 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 		var bodyWriter buf.Writer
 		bufferWriter := buf.NewBufferedWriter(buf.NewWriter(conn))
 		connWriter := &ConnWriter{Writer: bufferWriter, Target: destination, Account: account}
+		bodyWriter = connWriter
 
-		if destination.Network == net.Network_UDP {
+		if network == net.Network_UDP {
 			bodyWriter = &PacketWriter{Writer: connWriter, Target: destination}
 		} else {
-			bodyWriter = connWriter
-		}
-
-		// write some request payload to buffer
-		err = buf.CopyOnceTimeout(link.Reader, bodyWriter, proxy.FirstPayloadTimeout)
-		switch err {
-		case buf.ErrNotTimeoutReader, buf.ErrReadTimeout:
-			if err := connWriter.WriteHeader(); err != nil {
-				return newError("failed to write request header").Base(err).AtWarning()
+			// write some request payload to buffer
+			err = buf.CopyOnceTimeout(link.Reader, bodyWriter, proxy.FirstPayloadTimeout)
+			switch err {
+			case buf.ErrNotTimeoutReader, buf.ErrReadTimeout:
+				if err := connWriter.WriteHeader(); err != nil {
+					return newError("failed to write request header").Base(err).AtWarning()
+				}
+			case nil:
+			default:
+				return newError("failed to write a request payload").Base(err).AtWarning()
 			}
-		case nil:
-		default:
-			return newError("failed to write a request payload").Base(err).AtWarning()
-		}
-
-		// Flush; bufferWriter.WriteMultiBuffer now is bufferWriter.writer.WriteMultiBuffer
-		if err = bufferWriter.SetBuffered(false); err != nil {
-			return newError("failed to flush payload").Base(err).AtWarning()
+			// Flush; bufferWriter.WriteMultiBuffer now is bufferWriter.writer.WriteMultiBuffer
+			if err = bufferWriter.SetBuffered(false); err != nil {
+				return newError("failed to flush payload").Base(err).AtWarning()
+			}
 		}
 
 		if err = buf.Copy(link.Reader, bodyWriter, buf.UpdateActivity(timer)); err != nil {
