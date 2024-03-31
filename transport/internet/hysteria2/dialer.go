@@ -80,7 +80,7 @@ func NewHyClient(dest net.Destination, streamSettings *internet.MemoryStreamConf
 func CloseHyClient(dest net.Destination) error {
 	client, found := RunningClient[dest]
 	if found {
-		defer delete(RunningClient, dest)
+		delete(RunningClient, dest)
 		return client.Close()
 	}
 	return nil
@@ -98,6 +98,7 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 			return nil, err
 		}
 	}
+
 	quicConn := client.GetQuicConn()
 	conn := &HyConn{
 		local:  quicConn.LocalAddr(),
@@ -111,12 +112,9 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 		conn.Target = outbound.Target
 	}
 
-	if network == net.Network_UDP {
-		if !config.GetUdp() {
-			return nil, newError("UDP extension is not enabled.")
-		}
+	if network == net.Network_UDP && config.GetUdp() { // only hysteria2 can use udpExtension
 		conn.IsUDPExtension = true
-		conn.UDPSession, err = client.UDP()
+		conn.ClientUDPSession, err = client.UDP()
 		if err != nil {
 			CloseHyClient(dest)
 			return nil, err

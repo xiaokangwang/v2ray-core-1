@@ -27,17 +27,17 @@ const (
 	commandUDP byte = 3
 )
 
-// ConnWriter is TCP Connection Writer Wrapper for trojan protocol
+// ConnWriter is TCP Connection Writer Wrapper
 type ConnWriter struct {
 	io.Writer
-	Target     net.Destination
-	Account    *MemoryAccount
-	headerSent bool
+	Target        net.Destination
+	Account       *MemoryAccount
+	TCPHeaderSent bool
 }
 
 // Write implements io.Writer
 func (c *ConnWriter) Write(p []byte) (n int, err error) {
-	if !c.headerSent {
+	if !c.TCPHeaderSent {
 		if err := c.writeHeader(); err != nil {
 			return 0, newError("failed to write request header").Base(err)
 		}
@@ -62,7 +62,7 @@ func (c *ConnWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 }
 
 func (c *ConnWriter) WriteHeader() error {
-	if !c.headerSent {
+	if !c.TCPHeaderSent {
 		if err := c.writeHeader(); err != nil {
 			return err
 		}
@@ -89,7 +89,7 @@ func (c *ConnWriter) writeHeader() error {
 
 	_, err := c.Writer.Write(buf)
 	if err == nil {
-		c.headerSent = true
+		c.TCPHeaderSent = true
 	}
 	return err
 }
@@ -145,7 +145,7 @@ func (w *PacketWriter) writePacket(payload []byte, dest net.Destination) (int, e
 	return 0, nil
 }
 
-// ConnReader is TCP Connection Reader Wrapper for trojan protocol
+// ConnReader is TCP Connection Reader Wrapper
 type ConnReader struct {
 	io.Reader
 	Target net.Destination

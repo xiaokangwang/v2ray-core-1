@@ -3,17 +3,22 @@ package hysteria2
 import (
 	"time"
 
-	hy "github.com/apernet/hysteria/core/client"
+	hy_client "github.com/apernet/hysteria/core/client"
+	hy_server "github.com/apernet/hysteria/core/server"
 	"github.com/apernet/quic-go"
 
 	"github.com/v2fly/v2ray-core/v5/common/buf"
 	"github.com/v2fly/v2ray-core/v5/common/net"
 )
 
+const CanNotUseUdpExtension = "Only hysteria2 proxy protocol can use udpExtension."
+
 type HyConn struct {
-	IsUDPExtension bool
-	UDPSession     hy.HyUDPConn
-	Target         net.Destination
+	IsUDPExtension   bool
+	IsServer         bool
+	ClientUDPSession hy_client.HyUDPConn
+	ServerUDPSession hy_server.UDPConn
+	Target           net.Destination
 
 	stream quic.Stream
 	local  net.Addr
@@ -22,12 +27,7 @@ type HyConn struct {
 
 func (c *HyConn) Read(b []byte) (int, error) {
 	if c.IsUDPExtension {
-		data, address, err := c.UDPSession.Receive()
-		if err != nil {
-			return 0, err
-		}
-		b = append([]byte(address), data...)
-		return len(b), nil
+		return 0, newError(CanNotUseUdpExtension)
 	}
 	return c.stream.Read(b)
 }
@@ -41,14 +41,51 @@ func (c *HyConn) WriteMultiBuffer(mb buf.MultiBuffer) error {
 
 func (c *HyConn) Write(b []byte) (int, error) {
 	if c.IsUDPExtension {
-		return len(b), c.UDPSession.Send(b, c.Target.NetAddr())
+		return 0, newError(CanNotUseUdpExtension)
 	}
 	return c.stream.Write(b)
 }
 
+func (c *HyConn) WritePacket(b []byte, dest net.Destination) (int, error) {
+	if !c.IsUDPExtension || c.ClientUDPSession == nil {
+		return 0, newError(CanNotUseUdpExtension)
+	}
+
+	if c.IsServer {
+		return c.ServerUDPSession.WriteTo(b, dest.NetAddr())
+	}
+	return len(b), c.ClientUDPSession.Send(b, dest.NetAddr())
+}
+
+func (c *HyConn) ReadPacket(b []byte) (int, *net.Destination, error) {
+	if !c.IsUDPExtension || c.ClientUDPSession == nil {
+		return 0, nil, newError(CanNotUseUdpExtension)
+	}
+
+	address := ""
+	var err error
+	if c.IsServer {
+		_, address, err = c.ServerUDPSession.ReadFrom(b)
+	} else {
+		b, address, err = c.ClientUDPSession.Receive()
+	}
+	if err != nil {
+		return 0, nil, err
+	}
+	dest, err := net.ParseDestination(address)
+	dest.Network = net.Network_UDP
+	if err != nil {
+		return 0, nil, err
+	}
+	return len(b), &dest, nil
+}
+
 func (c *HyConn) Close() error {
 	if c.IsUDPExtension {
-		return c.UDPSession.Close()
+		if c.ClientUDPSession == nil {
+			return newError(CanNotUseUdpExtension)
+		}
+		return c.ClientUDPSession.Close()
 	}
 	return c.stream.Close()
 }

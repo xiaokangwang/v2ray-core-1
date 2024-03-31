@@ -7,7 +7,7 @@ toolchain go1.21.4
 require (
 	github.com/adrg/xdg v0.4.0
 	github.com/apernet/hysteria/core v0.0.0-00010101000000-000000000000
-	github.com/apernet/quic-go v0.41.1-0.20240301003057-e18162de481d
+	github.com/apernet/quic-go v0.42.1-0.20240323215309-32a339817822
 	github.com/go-chi/chi/v5 v5.0.12
 	github.com/go-chi/render v1.0.3
 	github.com/go-playground/validator/v10 v10.19.0
@@ -83,7 +83,7 @@ require (
 	golang.org/x/exp v0.0.0-20240318143956-a85f2c67cd81 // indirect
 	golang.org/x/mod v0.16.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
-	golang.org/x/time v0.4.0 // indirect
+	golang.org/x/time v0.5.0 // indirect
 	golang.org/x/tools v0.19.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240123012728-ef4313101c80 // indirect
 )
