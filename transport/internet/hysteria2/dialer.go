@@ -3,7 +3,7 @@ package hysteria2
 import (
 	"context"
 
-	hy "github.com/apernet/hysteria/core/client"
+	hy_client "github.com/apernet/hysteria/core/client"
 	hyProtocol "github.com/apernet/hysteria/core/international/protocol"
 	"github.com/apernet/quic-go/quicvarint"
 
@@ -18,9 +18,9 @@ const (
 	FrameTypeTCPRequest = 0x401
 )
 
-var RunningClient map[net.Destination](hy.Client)
+var RunningClient map[net.Destination](hy_client.Client)
 
-func InitTLSConifg(streamSettings *internet.MemoryStreamConfig) (*hy.TLSConfig, error) {
+func InitTLSConifg(streamSettings *internet.MemoryStreamConfig) (*hy_client.TLSConfig, error) {
 	tlsSetting := CheckTLSConfig(streamSettings, true)
 	if tlsSetting == nil {
 		tlsSetting = &tls.Config{
@@ -28,7 +28,7 @@ func InitTLSConifg(streamSettings *internet.MemoryStreamConfig) (*hy.TLSConfig, 
 			AllowInsecure: true,
 		}
 	}
-	res := &hy.TLSConfig{
+	res := &hy_client.TLSConfig{
 		ServerName:         tlsSetting.ServerName,
 		InsecureSkipVerify: tlsSetting.AllowInsecure,
 	}
@@ -52,7 +52,7 @@ func InitAddress(dest net.Destination) (net.Addr, error) {
 	return destAddr, nil
 }
 
-func NewHyClient(dest net.Destination, streamSettings *internet.MemoryStreamConfig) (hy.Client, error) {
+func NewHyClient(dest net.Destination, streamSettings *internet.MemoryStreamConfig) (hy_client.Client, error) {
 	tlsConfig, err := InitTLSConifg(streamSettings)
 	if err != nil {
 		return nil, err
@@ -64,7 +64,7 @@ func NewHyClient(dest net.Destination, streamSettings *internet.MemoryStreamConf
 	}
 
 	config := streamSettings.ProtocolSettings.(*Config)
-	client, _, err := hy.NewClient(&hy.Config{
+	client, _, err := hy_client.NewClient(&hy_client.Config{
 		TLSConfig:  *tlsConfig,
 		Auth:       config.GetPassword(),
 		ServerAddr: serverAddr,
@@ -89,7 +89,7 @@ func CloseHyClient(dest net.Destination) error {
 func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (internet.Connection, error) {
 	config := streamSettings.ProtocolSettings.(*Config)
 
-	var client hy.Client
+	var client hy_client.Client
 	var err error
 	client, found := RunningClient[dest]
 	if !found {
@@ -137,6 +137,6 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 }
 
 func init() {
-	RunningClient = make(map[net.Destination]hy.Client)
+	RunningClient = make(map[net.Destination]hy_client.Client)
 	common.Must(internet.RegisterTransportDialer(protocolName, Dial))
 }

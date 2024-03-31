@@ -82,8 +82,11 @@ func (c *HyConn) ReadPacket(b []byte) (int, *net.Destination, error) {
 
 func (c *HyConn) Close() error {
 	if c.IsUDPExtension {
-		if c.ClientUDPSession == nil {
+		if !c.IsServer && c.ClientUDPSession == nil || (c.IsServer && c.ServerUDPSession == nil) {
 			return newError(CanNotUseUdpExtension)
+		}
+		if c.IsServer {
+			return c.ServerUDPSession.Close()
 		}
 		return c.ClientUDPSession.Close()
 	}
