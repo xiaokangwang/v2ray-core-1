@@ -118,7 +118,7 @@ func (s *Server) Process(ctx context.Context, network net.Network, conn internet
 	}
 	sessionPolicy = s.policyManager.ForLevel(0)
 
-	if destination.Network == net.Network_UDP { // handle udp request
+	if network == net.Network_UDP { // handle udp request
 		return s.handleUDPPayload(ctx, &PacketReader{Reader: clientReader}, &PacketWriter{Writer: conn}, dispatcher)
 	}
 
