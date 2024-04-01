@@ -82,9 +82,21 @@ func (s *Server) Process(ctx context.Context, network net.Network, conn internet
 		return newError("unable to set read deadline").Base(err).AtWarning()
 	}
 
+	bufferedReader := &buf.BufferedReader{
+		Reader: buf.NewReader(conn),
+	}
+	clientReader := &ConnReader{Reader: bufferedReader}
+
+	if err := conn.SetReadDeadline(time.Time{}); err != nil {
+		return newError("unable to set read deadline").Base(err).AtWarning()
+	}
+
+	if network == net.Network_UDP { // handle udp request
+		return s.handleUDPPayload(ctx, &PacketReader{Reader: clientReader}, &PacketWriter{Writer: conn}, dispatcher)
+	}
+
 	var reqAddr string
 	var err error
-
 	if network == net.Network_TCP {
 		reqAddr, err = hyProtocol.ReadTCPRequest(conn)
 		if err != nil {
@@ -95,9 +107,6 @@ func (s *Server) Process(ctx context.Context, network net.Network, conn internet
 			return newError("failed to send response").Base(err)
 		}
 	}
-	bufferedReader := &buf.BufferedReader{
-		Reader: buf.NewReader(conn),
-	}
 
 	address := strings.Split(reqAddr, ":")
 	port, err := net.PortFromString(address[1])
@@ -106,21 +115,11 @@ func (s *Server) Process(ctx context.Context, network net.Network, conn internet
 	}
 	destination := net.Destination{Network: network, Address: net.ParseAddress(address[0]), Port: port}
 
-	clientReader := &ConnReader{Reader: bufferedReader}
-
-	if err := conn.SetReadDeadline(time.Time{}); err != nil {
-		return newError("unable to set read deadline").Base(err).AtWarning()
-	}
-
 	inbound := session.InboundFromContext(ctx)
 	if inbound == nil {
 		panic("no inbound metadata")
 	}
 	sessionPolicy = s.policyManager.ForLevel(0)
-
-	if network == net.Network_UDP { // handle udp request
-		return s.handleUDPPayload(ctx, &PacketReader{Reader: clientReader}, &PacketWriter{Writer: conn}, dispatcher)
-	}
 
 	ctx = log.ContextWithAccessMessage(ctx, &log.AccessMessage{
 		From:   conn.RemoteAddr(),

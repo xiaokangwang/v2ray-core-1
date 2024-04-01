@@ -93,6 +93,7 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 	var err error
 	client, found := RunningClient[dest]
 	if !found {
+		// TODO: Clean idle connections
 		client, err = NewHyClient(dest, streamSettings)
 		if err != nil {
 			return nil, err
