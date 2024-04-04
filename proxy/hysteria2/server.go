@@ -74,6 +74,10 @@ func (s *Server) Process(ctx context.Context, network net.Network, conn internet
 		network = net.Network_UDP
 	}
 
+	if !IsHy2Transport && network == net.Network_UDP {
+		return newError(hy2_transport.CanNotUseUdpExtension)
+	}
+
 	sessionPolicy := s.policyManager.ForLevel(0)
 	if err := conn.SetReadDeadline(time.Now().Add(sessionPolicy.Timeouts.Handshake)); err != nil {
 		return newError("unable to set read deadline").Base(err).AtWarning()
