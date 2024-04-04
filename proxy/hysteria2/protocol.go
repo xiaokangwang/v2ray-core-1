@@ -10,6 +10,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/buf"
 	"github.com/v2fly/v2ray-core/v5/common/net"
 	"github.com/v2fly/v2ray-core/v5/common/protocol"
+	hy2_transport "github.com/v2fly/v2ray-core/v5/transport/internet/hysteria2"
 )
 
 var (
@@ -97,6 +98,7 @@ func (c *ConnWriter) writeHeader() error {
 // PacketWriter UDP Connection Writer Wrapper
 type PacketWriter struct {
 	io.Writer
+	HyConn *hy2_transport.HyConn
 	Target net.Destination
 }
 
@@ -136,13 +138,8 @@ func (w *PacketWriter) WriteTo(payload []byte, addr gonet.Addr) (int, error) {
 	return w.writePacket(payload, dest)
 }
 
-func (w *PacketWriter) writePacket(payload []byte, dest net.Destination) (int, error) { // nolint: unparam
-	_, err := w.Write(payload)
-	if err != nil {
-		return 0, err
-	}
-
-	return 0, nil
+func (w *PacketWriter) writePacket(payload []byte, dest net.Destination) (int, error) {
+	return w.HyConn.WritePacket(payload, dest)
 }
 
 // ConnReader is TCP Connection Reader Wrapper
@@ -172,6 +169,7 @@ type PacketPayload struct {
 // PacketReader is UDP Connection Reader Wrapper
 type PacketReader struct {
 	io.Reader
+	HyConn *hy2_transport.HyConn
 }
 
 // ReadMultiBuffer implements buf.Reader
@@ -185,32 +183,10 @@ func (r *PacketReader) ReadMultiBuffer() (buf.MultiBuffer, error) {
 
 // ReadMultiBufferWithMetadata reads udp packet with destination
 func (r *PacketReader) ReadMultiBufferWithMetadata() (*PacketPayload, error) {
-	addr, port, err := addrParser.ReadAddressPort(nil, r)
-	if err != nil {
-		return nil, newError("failed to read address and port").Base(err)
-	}
-
-	var lengthBuf [2]byte
-	if _, err := io.ReadFull(r, lengthBuf[:]); err != nil {
-		return nil, newError("failed to read payload length").Base(err)
-	}
-
-	length := binary.BigEndian.Uint16(lengthBuf[:])
-
-	var crlf [2]byte
-	if _, err := io.ReadFull(r, crlf[:]); err != nil {
-		return nil, newError("failed to read crlf").Base(err)
-	}
-
-	dest := net.UDPDestination(addr, port)
-
-	b := buf.NewWithSize(int32(length))
-	_, err = b.ReadFullFrom(r, int32(length))
-	if err != nil {
-		return nil, newError("failed to read payload").Base(err)
-	}
-
-	return &PacketPayload{Target: dest, Buffer: buf.MultiBuffer{b}}, nil
+	var data []byte
+	_, dest, _ := r.HyConn.ReadPacket(data)
+	b := buf.FromBytes(data)
+	return &PacketPayload{Target: *dest, Buffer: buf.MultiBuffer{b}}, nil
 }
 
 type PacketConnectionReader struct {

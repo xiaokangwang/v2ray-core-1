@@ -17,6 +17,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/proxy"
 	"github.com/v2fly/v2ray-core/v5/transport"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
+	hy2_transport "github.com/v2fly/v2ray-core/v5/transport/internet/hysteria2"
 )
 
 // Client is an inbound handler for trojan protocol
@@ -74,6 +75,11 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 	}
 	newError("tunneling request to ", destination, " via ", server.Destination().NetAddr()).WriteToLog(session.ExportIDToError(ctx))
 
+	hyConn, IsHy2Transport := conn.(*hy2_transport.HyConn)
+	if !IsHy2Transport || !hyConn.IsUDPExtension {
+		return newError(hy2_transport.CanNotUseUdpExtension)
+	}
+
 	defer conn.Close()
 
 	user := server.PickUser()
@@ -95,7 +101,7 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 		bodyWriter = connWriter
 
 		if network == net.Network_UDP {
-			bodyWriter = &PacketWriter{Writer: connWriter, Target: destination}
+			bodyWriter = &PacketWriter{Writer: connWriter, Target: destination, HyConn: hyConn}
 		} else {
 			// write some request payload to buffer
 			err = buf.CopyOnceTimeout(link.Reader, bodyWriter, proxy.FirstPayloadTimeout)
@@ -127,7 +133,7 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 		var reader buf.Reader
 		if network == net.Network_UDP {
 			reader = &PacketReader{
-				Reader: conn,
+				Reader: conn, HyConn: hyConn,
 			}
 		} else {
 			ok, msg, err := hyProtocol.ReadTCPResponse(conn)

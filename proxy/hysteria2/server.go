@@ -2,7 +2,6 @@ package hysteria2
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"strings"
 	"time"
@@ -71,8 +70,6 @@ func (s *Server) Process(ctx context.Context, network net.Network, conn internet
 	sid := session.ExportIDToError(ctx)
 
 	hyConn, IsHy2Transport := conn.(*hy2_transport.HyConn)
-	fmt.Println(IsHy2Transport)
-	fmt.Println(hyConn.IsUDPExtension)
 	if IsHy2Transport && hyConn.IsUDPExtension {
 		network = net.Network_UDP
 	}
