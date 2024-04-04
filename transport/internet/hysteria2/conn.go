@@ -1,7 +1,6 @@
 package hysteria2
 
 import (
-	"fmt"
 	"time"
 
 	hy_client "github.com/apernet/hysteria/core/client"
@@ -81,7 +80,6 @@ func (c *HyConn) ReadPacket(b []byte) (int, *net.Destination, error) {
 		dest, err := net.ParseDestination("udp:" + msg.Addr)
 		return nBytes, &dest, err
 	}
-	fmt.Println("client waitting packet:")
 	data, address, err := c.ClientUDPSession.Receive()
 	if err != nil {
 		return 0, nil, err
