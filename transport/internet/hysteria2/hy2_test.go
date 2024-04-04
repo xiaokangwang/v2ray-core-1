@@ -13,13 +13,14 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/buf"
 	"github.com/v2fly/v2ray-core/v5/common/net"
 	"github.com/v2fly/v2ray-core/v5/common/protocol/tls/cert"
+	"github.com/v2fly/v2ray-core/v5/common/session"
 	"github.com/v2fly/v2ray-core/v5/testing/servers/udp"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/hysteria2"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/tls"
 )
 
-func TestHTTP3Connection(t *testing.T) {
+func TestTCP(t *testing.T) {
 	port := udp.PickPort()
 
 	listener, err := hysteria2.Listen(context.Background(), net.LocalHostIP, port, &internet.MemoryStreamConfig{
@@ -86,6 +87,76 @@ func TestHTTP3Connection(t *testing.T) {
 
 	common.Must2(conn.Write(b1))
 
+	b2.Clear()
+	common.Must2(b2.ReadFullFrom(conn, N))
+	if r := cmp.Diff(b2.Bytes(), b1); r != "" {
+		t.Error(r)
+	}
+}
+
+func TestUDP(t *testing.T) {
+	port := udp.PickPort()
+
+	listener, err := hysteria2.Listen(context.Background(), net.LocalHostIP, port, &internet.MemoryStreamConfig{
+		ProtocolName:     "hysteria2",
+		ProtocolSettings: &hysteria2.Config{Password: "123", Udp: true},
+		SecurityType:     "tls",
+		SecuritySettings: &tls.Config{
+			Certificate: []*tls.Certificate{
+				tls.ParseCertificate(
+					cert.MustGenerate(nil,
+						cert.DNSNames("www.v2fly.org"),
+					),
+				),
+			},
+		},
+	}, func(conn internet.Connection) {
+		fmt.Println("incoming")
+		go func() {
+			defer conn.Close()
+
+			b := buf.New()
+			defer b.Release()
+
+			for {
+				b.Clear()
+				if _, err := b.ReadFrom(conn); err != nil {
+					fmt.Println(err)
+					return
+				}
+				fmt.Println(b.Bytes())
+				common.Must2(conn.Write(b.Bytes()))
+			}
+		}()
+	})
+	common.Must(err)
+
+	defer listener.Close()
+
+	time.Sleep(time.Second)
+
+	address, err := net.ParseDestination("127.0.0.1:1180")
+	address.Network = net.Network_UDP
+	dctx := session.ContextWithOutbound(context.Background(), &session.Outbound{Target: address})
+
+	conn, err := hysteria2.Dial(dctx, net.TCPDestination(net.LocalHostIP, port), &internet.MemoryStreamConfig{
+		ProtocolName:     "hysteria2",
+		ProtocolSettings: &hysteria2.Config{Password: "123", Udp: true},
+		SecurityType:     "tls",
+		SecuritySettings: &tls.Config{
+			ServerName:    "www.v2fly.org",
+			AllowInsecure: true,
+		},
+	})
+	common.Must(err)
+	defer conn.Close()
+
+	const N = 10
+	b1 := make([]byte, N)
+	common.Must2(rand.Read(b1))
+	common.Must2(conn.Write(b1))
+
+	b2 := buf.New()
 	b2.Clear()
 	common.Must2(b2.ReadFullFrom(conn, N))
 	if r := cmp.Diff(b2.Bytes(), b1); r != "" {

@@ -47,7 +47,7 @@ func (l *Listener) UdpHijacker(entry *hy_server.UdpSessionEntry) {
 	udpConn := &HyConn{
 		IsUDPExtension:   true,
 		IsServer:         true,
-		ServerUDPSession: entry.Conn,
+		ServerUDPSession: entry,
 	}
 	l.addConn(udpConn)
 }
