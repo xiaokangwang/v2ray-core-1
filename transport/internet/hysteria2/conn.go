@@ -27,7 +27,8 @@ type HyConn struct {
 
 func (c *HyConn) Read(b []byte) (int, error) {
 	if c.IsUDPExtension {
-		return 0, newError(CanNotUseUdpExtension)
+		n, _, err := c.ReadPacket(b)
+		return n, err
 	}
 	return c.stream.Read(b)
 }
@@ -41,7 +42,8 @@ func (c *HyConn) WriteMultiBuffer(mb buf.MultiBuffer) error {
 
 func (c *HyConn) Write(b []byte) (int, error) {
 	if c.IsUDPExtension {
-		return 0, newError(CanNotUseUdpExtension)
+		dest, _ := net.ParseDestination("v2fly.org:6666")
+		return c.WritePacket(b, dest)
 	}
 	return c.stream.Write(b)
 }
