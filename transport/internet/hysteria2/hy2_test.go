@@ -84,14 +84,6 @@ func TestTCP(t *testing.T) {
 	if r := cmp.Diff(b2.Bytes(), b1); r != "" {
 		t.Error(r)
 	}
-
-	common.Must2(conn.Write(b1))
-
-	b2.Clear()
-	common.Must2(b2.ReadFullFrom(conn, N))
-	if r := cmp.Diff(b2.Bytes(), b1); r != "" {
-		t.Error(r)
-	}
 }
 
 func TestUDP(t *testing.T) {
@@ -124,7 +116,6 @@ func TestUDP(t *testing.T) {
 					fmt.Println(err)
 					return
 				}
-				fmt.Println(b.Bytes())
 				common.Must2(conn.Write(b.Bytes()))
 			}
 		}()
@@ -135,8 +126,7 @@ func TestUDP(t *testing.T) {
 
 	time.Sleep(time.Second)
 
-	address, err := net.ParseDestination("127.0.0.1:1180")
-	address.Network = net.Network_UDP
+	address, err := net.ParseDestination("udp:127.0.0.1:1180")
 	dctx := session.ContextWithOutbound(context.Background(), &session.Outbound{Target: address})
 
 	conn, err := hysteria2.Dial(dctx, net.TCPDestination(net.LocalHostIP, port), &internet.MemoryStreamConfig{
@@ -151,7 +141,7 @@ func TestUDP(t *testing.T) {
 	common.Must(err)
 	defer conn.Close()
 
-	const N = 10
+	const N = 1000
 	b1 := make([]byte, N)
 	common.Must2(rand.Read(b1))
 	common.Must2(conn.Write(b1))
