@@ -1,7 +1,6 @@
 package hysteria2
 
 import (
-	"encoding/binary"
 	"io"
 	gonet "net"
 

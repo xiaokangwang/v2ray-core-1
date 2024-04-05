@@ -76,7 +76,7 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 	newError("tunneling request to ", destination, " via ", server.Destination().NetAddr()).WriteToLog(session.ExportIDToError(ctx))
 
 	hyConn, IsHy2Transport := conn.(*hy2_transport.HyConn)
-	if !IsHy2Transport || !hyConn.IsUDPExtension {
+	if !IsHy2Transport && !hyConn.IsUDPExtension { // is not hysteria2 and proxing UDP
 		return newError(hy2_transport.CanNotUseUdpExtension)
 	}
 
