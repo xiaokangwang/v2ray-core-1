@@ -2,6 +2,7 @@ package hysteria2
 
 import (
 	"context"
+	"fmt"
 
 	hy_server "github.com/apernet/hysteria/core/server"
 	"github.com/apernet/quic-go"
@@ -31,7 +32,8 @@ func (l *Listener) Close() error {
 	return l.hyServer.Close()
 }
 
-func (l *Listener) ProxyStreamHijacker(ft http3.FrameType, conn quic.Connection, stream quic.Stream, err error) (bool, error) {
+func (l *Listener) ProxyStreamHijacker(ft http3.FrameType,
+	conn quic.Connection, stream quic.Stream, err error) (bool, error) {
 	// err always == nil
 
 	tcpConn := &HyConn{
@@ -43,26 +45,32 @@ func (l *Listener) ProxyStreamHijacker(ft http3.FrameType, conn quic.Connection,
 	return true, nil
 }
 
-func (l *Listener) UdpHijacker(entry *hy_server.UdpSessionEntry) {
+func (l *Listener) UdpHijacker(entry *hy_server.UdpSessionEntry, originalAddr string) {
+	fmt.Println(originalAddr)
+	addr := net.ParseAddress(originalAddr)
 	udpConn := &HyConn{
 		IsUDPExtension:   true,
 		IsServer:         true,
 		ServerUDPSession: entry,
+		local:            addr,
 	}
 	l.addConn(udpConn)
 }
 
 // Listen creates a new Listener based on configurations.
-func Listen(ctx context.Context, address net.Address, port net.Port, streamSettings *internet.MemoryStreamConfig, handler internet.ConnHandler) (internet.Listener, error) {
+func Listen(ctx context.Context, address net.Address, port net.Port,
+	streamSettings *internet.MemoryStreamConfig,
+	handler internet.ConnHandler) (internet.Listener, error) {
 	if address.Family().IsDomain() {
 		return nil, nil
 	}
 
 	config := streamSettings.ProtocolSettings.(*Config)
-	rawConn, err := internet.ListenSystemPacket(context.Background(), &net.UDPAddr{
-		IP:   address.IP(),
-		Port: int(port),
-	}, streamSettings.SocketSettings)
+	rawConn, err := internet.ListenSystemPacket(context.Background(),
+		&net.UDPAddr{
+			IP:   address.IP(),
+			Port: int(port),
+		}, streamSettings.SocketSettings)
 	if err != nil {
 		return nil, err
 	}

@@ -28,7 +28,8 @@ type HyConn struct {
 
 func (c *HyConn) Read(b []byte) (int, error) {
 	if c.IsUDPExtension {
-		n, _, err := c.ReadPacket(b)
+		n, data, _, err := c.ReadPacket()
+		copy(b, data)
 		return n, err
 	}
 	return c.stream.Read(b)
@@ -69,27 +70,25 @@ func (c *HyConn) WritePacket(b []byte, dest net.Destination) (int, error) {
 	return len(b), c.ClientUDPSession.Send(b, dest.NetAddr())
 }
 
-func (c *HyConn) ReadPacket(b []byte) (int, *net.Destination, error) {
+func (c *HyConn) ReadPacket() (int, []byte, *net.Destination, error) {
 	if !c.IsUDPExtension {
-		return 0, nil, newError(CanNotUseUdpExtension)
+		return 0, nil, nil, newError(CanNotUseUdpExtension)
 	}
 
 	if c.IsServer {
 		msg := <-c.ServerUDPSession.ReceiveCh
-		nBytes := copy(b, msg.Data)
 		dest, err := net.ParseDestination("udp:" + msg.Addr)
-		return nBytes, &dest, err
+		return len(msg.Data), msg.Data, &dest, err
 	}
 	data, address, err := c.ClientUDPSession.Receive()
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, nil, err
 	}
-	nBytes := copy(b, data)
 	dest, err := net.ParseDestination("udp:" + address)
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, nil, err
 	}
-	return nBytes, &dest, nil
+	return len(data), data, &dest, nil
 }
 
 func (c *HyConn) Close() error {

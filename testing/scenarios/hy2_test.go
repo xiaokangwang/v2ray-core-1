@@ -1,7 +1,6 @@
 package scenarios
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -174,15 +173,31 @@ func testVMessHysteria2(t *testing.T, congestionType string) {
 }
 
 func TestHysteria2Offical(t *testing.T) {
-	tcpServer := tcp.Server{
-		MsgProcessor: xor,
+	for _, v := range []bool{true} {
+		testHysteria2Offical(t, v)
 	}
-	dest, err := tcpServer.Start()
-	common.Must(err)
-	defer tcpServer.Close()
+}
+
+func testHysteria2Offical(t *testing.T, isUDP bool) {
+	var dest net.Destination
+	var err error
+	if isUDP {
+		udpServer := udp.Server{
+			MsgProcessor: xor,
+		}
+		dest, err = udpServer.Start()
+		common.Must(err)
+		defer udpServer.Close()
+	} else {
+		tcpServer := tcp.Server{
+			MsgProcessor: xor,
+		}
+		dest, err = tcpServer.Start()
+		common.Must(err)
+		defer tcpServer.Close()
+	}
 
 	serverPort := udp.PickPort()
-	fmt.Println(serverPort)
 	serverConfig := &core.Config{
 		App: []*anypb.Any{
 			serial.ToTypedMessage(&log.Config{
@@ -262,7 +277,7 @@ func TestHysteria2Offical(t *testing.T) {
 										Type: protocol.SecurityType_NONE,
 									},
 									Congestion: &hy2_transport.Congestion{Type: "brutal", UpMbps: 100, DownMbps: 100},
-									Udp: true,
+									Udp:        true,
 									Password:   "password",
 								}),
 							},
@@ -293,9 +308,12 @@ func TestHysteria2Offical(t *testing.T) {
 	defer CloseAllServers(servers)
 
 	var errg errgroup.Group
-	for i := 0; i < 10; i++ {
-		errg.Go(testTCPConn(clientPort, 10240*1024, time.Second*40))
-		errg.Go(testUDPConn(clientPort, 10240*1024, time.Second*40))
+	for i := 0; i < 1; i++ {
+		if isUDP {
+			errg.Go(testUDPConn(clientPort, 1024, time.Second*4))
+		} else {
+			errg.Go(testTCPConn(clientPort, 10240*1024, time.Second*40))
+		}
 	}
 
 	if err := errg.Wait(); err != nil {

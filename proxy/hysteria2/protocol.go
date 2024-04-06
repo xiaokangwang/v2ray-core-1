@@ -182,8 +182,7 @@ func (r *PacketReader) ReadMultiBuffer() (buf.MultiBuffer, error) {
 
 // ReadMultiBufferWithMetadata reads udp packet with destination
 func (r *PacketReader) ReadMultiBufferWithMetadata() (*PacketPayload, error) {
-	var data []byte
-	_, dest, _ := r.HyConn.ReadPacket(data)
+	_, data, dest, _ := r.HyConn.ReadPacket()
 	b := buf.FromBytes(data)
 	return &PacketPayload{Target: *dest, Buffer: buf.MultiBuffer{b}}, nil
 }

@@ -2,6 +2,7 @@ package hysteria2
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"strings"
 	"time"
@@ -73,6 +74,8 @@ func (s *Server) Process(ctx context.Context, network net.Network, conn internet
 	if IsHy2Transport && hyConn.IsUDPExtension {
 		network = net.Network_UDP
 	}
+	fmt.Println("------------------------")
+	fmt.Println(network)
 
 	if !IsHy2Transport && network == net.Network_UDP {
 		return newError(hy2_transport.CanNotUseUdpExtension)
@@ -98,15 +101,13 @@ func (s *Server) Process(ctx context.Context, network net.Network, conn internet
 
 	var reqAddr string
 	var err error
-	if network == net.Network_TCP {
-		reqAddr, err = hyProtocol.ReadTCPRequest(conn)
-		if err != nil {
-			return newError("failed to parse header").Base(err)
-		}
-		err = hyProtocol.WriteTCPResponse(conn, true, "")
-		if err != nil {
-			return newError("failed to send response").Base(err)
-		}
+	reqAddr, err = hyProtocol.ReadTCPRequest(conn)
+	if err != nil {
+		return newError("failed to parse header").Base(err)
+	}
+	err = hyProtocol.WriteTCPResponse(conn, true, "")
+	if err != nil {
+		return newError("failed to send response").Base(err)
 	}
 
 	address := strings.Split(reqAddr, ":")
