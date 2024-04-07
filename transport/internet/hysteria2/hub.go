@@ -46,13 +46,16 @@ func (l *Listener) ProxyStreamHijacker(ft http3.FrameType,
 }
 
 func (l *Listener) UdpHijacker(entry *hy_server.UdpSessionEntry, originalAddr string) {
-	fmt.Println(originalAddr)
-	addr := net.ParseAddress(originalAddr)
+	addr, err := net.ResolveUDPAddr("udp", originalAddr)
+	if err != nil {
+		return
+	}
 	udpConn := &HyConn{
 		IsUDPExtension:   true,
 		IsServer:         true,
 		ServerUDPSession: entry,
-		local:            addr,
+		remote:           addr,
+		local:            l.rawConn.LocalAddr(),
 	}
 	l.addConn(udpConn)
 }
