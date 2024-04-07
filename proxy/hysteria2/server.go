@@ -2,7 +2,6 @@ package hysteria2
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"strings"
 	"time"
@@ -74,8 +73,6 @@ func (s *Server) Process(ctx context.Context, network net.Network, conn internet
 	if IsHy2Transport && hyConn.IsUDPExtension {
 		network = net.Network_UDP
 	}
-	fmt.Println("------------------------")
-	fmt.Println(network)
 
 	if !IsHy2Transport && network == net.Network_UDP {
 		return newError(hy2_transport.CanNotUseUdpExtension)
@@ -96,7 +93,9 @@ func (s *Server) Process(ctx context.Context, network net.Network, conn internet
 	}
 
 	if network == net.Network_UDP { // handle udp request
-		return s.handleUDPPayload(ctx, &PacketReader{Reader: clientReader}, &PacketWriter{Writer: conn}, dispatcher)
+		return s.handleUDPPayload(ctx,
+			&PacketReader{Reader: clientReader, HyConn: hyConn},
+			&PacketWriter{Writer: conn, HyConn: hyConn}, dispatcher)
 	}
 
 	var reqAddr string
@@ -192,7 +191,7 @@ func (s *Server) handleUDPPayload(ctx context.Context, clientReader *PacketReade
 	})
 
 	inbound := session.InboundFromContext(ctx)
-	user := inbound.User
+	// user := inbound.User
 
 	for {
 		select {
@@ -212,7 +211,6 @@ func (s *Server) handleUDPPayload(ctx context.Context, clientReader *PacketReade
 				To:     p.Target,
 				Status: log.AccessAccepted,
 				Reason: "",
-				Email:  user.Email,
 			})
 			newError("tunnelling request to ", p.Target).WriteToLog(session.ExportIDToError(ctx))
 

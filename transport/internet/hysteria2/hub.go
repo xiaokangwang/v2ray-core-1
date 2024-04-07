@@ -2,7 +2,6 @@ package hysteria2
 
 import (
 	"context"
-	"fmt"
 
 	hy_server "github.com/apernet/hysteria/core/server"
 	"github.com/apernet/quic-go"

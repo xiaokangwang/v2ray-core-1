@@ -173,7 +173,7 @@ func testVMessHysteria2(t *testing.T, congestionType string) {
 }
 
 func TestHysteria2Offical(t *testing.T) {
-	for _, v := range []bool{true} {
+	for _, v := range []bool{true, false} {
 		testHysteria2Offical(t, v)
 	}
 }
@@ -308,7 +308,7 @@ func testHysteria2Offical(t *testing.T, isUDP bool) {
 	defer CloseAllServers(servers)
 
 	var errg errgroup.Group
-	for i := 0; i < 1; i++ {
+	for i := 0; i < 10; i++ {
 		if isUDP {
 			errg.Go(testUDPConn(clientPort, 1024, time.Second*4))
 		} else {
