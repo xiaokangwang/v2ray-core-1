@@ -87,7 +87,7 @@ func Listen(ctx context.Context, address net.Address, port net.Port,
 		TLSConfig:             *GetTLSConfig(streamSettings),
 		Authenticator:         &Authenticator{Password: config.GetPassword()},
 		IgnoreClientBandwidth: config.GetIgnoreClientBandwidth(),
-		DisableUDP:            !config.GetUdp(),
+		DisableUDP:            !config.GetUseUdpExtension(),
 		StreamHijacker:        listener.ProxyStreamHijacker, // acceptStreams
 		UdpSessionHijacker:    listener.UdpHijacker,         // acceptUDPSession
 	})
