@@ -20,13 +20,13 @@ import (
 	hy2_transport "github.com/v2fly/v2ray-core/v5/transport/internet/hysteria2"
 )
 
-// Client is an inbound handler for trojan protocol
+// Client is an inbound handler
 type Client struct {
 	serverPicker  protocol.ServerPicker
 	policyManager policy.Manager
 }
 
-// NewClient create a new trojan client.
+// NewClient create a new client.
 func NewClient(ctx context.Context, config *ClientConfig) (*Client, error) {
 	serverList := protocol.NewServerList()
 	for _, rec := range config.Server {

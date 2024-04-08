@@ -1,0 +1,78 @@
+{
+  "log": {
+    "access":{"level": "Debug"}
+  },
+  "inbounds": [{
+    "port": 1080,
+    "listen": "127.0.0.1",
+    "tag": "http",
+    "protocol": "http"
+  }, {
+    "port": 1280,
+    "listen": "127.0.0.1",
+    "tag": "hy2_in_bbr",
+    "protocol": "hysteria2",
+    "streamSettings": {
+      "transport": "hysteria2",
+      "transportSettings": {
+        "congestion": {
+          "type": "bbr"
+        },
+        "use_udp_extension": true
+      },
+      "security": "tls"
+    }
+  },{
+    "port": 1281,
+    "listen": "127.0.0.1",
+    "tag": "hy2_in_brutal",
+    "protocol": "hysteria2",
+    "streamSettings": {
+      "transport": "hysteria2",
+      "transportSettings": {
+        "congestion": {
+          "type": "brutal",
+          "up_mbps":20, 
+          "down_mbps": 100
+        },
+        "use_udp_extension": true
+      },
+      "security": "tls"
+    }
+  }],
+  "outbounds": [{
+    "protocol": "freedom",
+    "tag": "direct"
+  }, {
+    "tag": "hy2_out",
+    "protocol": "hysteria2",
+    "settings": {
+      "server": [{
+        "address": "127.0.0.1",
+        "port": 1280
+      }]
+    },
+    "streamSettings": {
+      "transport": "hysteria2",
+      "transportSettings": {
+        "congestion": {
+          "type": "bbr"
+        }
+      },
+      "security": "tls"
+    }
+  }],
+  "routing": {
+    "rules": [{
+        "type": "field",
+        "outboundTag": "direct",
+        "inboundTag": ["hy2_in_bbr", "hy2_in_brutal"]
+      },
+      {
+        "type": "field",
+        "outboundTag": "hy2_out",
+        "inboundTag": ["http"]
+      }
+    ]
+  }
+}
