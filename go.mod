@@ -6,7 +6,7 @@ toolchain go1.21.4
 
 require (
 	github.com/adrg/xdg v0.4.0
-	github.com/apernet/hysteria/core v0.0.0-00010101000000-000000000000
+	github.com/apernet/hysteria/core v1.3.5
 	github.com/apernet/quic-go v0.42.1-0.20240323215309-32a339817822
 	github.com/go-chi/chi/v5 v5.0.12
 	github.com/go-chi/render v1.0.3
@@ -90,4 +90,4 @@ require (
 
 replace github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40 => github.com/xiaokangwang/struc v0.0.0-20231031203518-0e381172f248
 
-replace github.com/apernet/hysteria/core => ../hysteria/core
+replace github.com/apernet/hysteria/core v1.3.5 => github.com/JimmyHuang454/hysteria/core v0.0.0-20240408143247-3a6a6d41fbe2
