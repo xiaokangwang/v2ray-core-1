@@ -26,5 +26,5 @@ message Config {
   string password = 3;
   Congestion congestion = 4;
   bool ignore_client_bandwidth = 5;
-  bool udp = 6;
+  bool use_udp_extension = 6;
 }
