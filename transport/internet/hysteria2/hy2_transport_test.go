@@ -91,7 +91,7 @@ func TestUDP(t *testing.T) {
 
 	listener, err := hysteria2.Listen(context.Background(), net.LocalHostIP, port, &internet.MemoryStreamConfig{
 		ProtocolName:     "hysteria2",
-		ProtocolSettings: &hysteria2.Config{Password: "123", Udp: true},
+		ProtocolSettings: &hysteria2.Config{Password: "123", UseUdpExtension: true},
 		SecurityType:     "tls",
 		SecuritySettings: &tls.Config{
 			Certificate: []*tls.Certificate{
@@ -131,7 +131,7 @@ func TestUDP(t *testing.T) {
 
 	conn, err := hysteria2.Dial(dctx, net.TCPDestination(net.LocalHostIP, port), &internet.MemoryStreamConfig{
 		ProtocolName:     "hysteria2",
-		ProtocolSettings: &hysteria2.Config{Password: "123", Udp: true},
+		ProtocolSettings: &hysteria2.Config{Password: "123", UseUdpExtension: true},
 		SecurityType:     "tls",
 		SecuritySettings: &tls.Config{
 			ServerName:    "www.v2fly.org",
