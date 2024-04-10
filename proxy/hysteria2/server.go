@@ -69,7 +69,12 @@ func (s *Server) Network() []net.Network {
 func (s *Server) Process(ctx context.Context, network net.Network, conn internet.Connection, dispatcher routing.Dispatcher) error {
 	sid := session.ExportIDToError(ctx)
 
-	hyConn, IsHy2Transport := conn.(*hy2_transport.HyConn)
+	iConn := conn
+	if statConn, ok := conn.(*internet.StatCouterConnection); ok {
+		iConn = statConn.Connection // will not count the UDP traffic.
+	}
+	hyConn, IsHy2Transport := iConn.(*hy2_transport.HyConn)
+
 	if IsHy2Transport && hyConn.IsUDPExtension {
 		network = net.Network_UDP
 	}

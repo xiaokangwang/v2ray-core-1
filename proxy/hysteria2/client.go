@@ -75,7 +75,12 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 	}
 	newError("tunneling request to ", destination, " via ", server.Destination().NetAddr()).WriteToLog(session.ExportIDToError(ctx))
 
-	hyConn, IsHy2Transport := conn.(*hy2_transport.HyConn)
+	iConn := conn
+	if statConn, ok := conn.(*internet.StatCouterConnection); ok {
+		iConn = statConn.Connection // will not count the UDP traffic.
+	}
+	hyConn, IsHy2Transport := iConn.(*hy2_transport.HyConn)
+
 	if !IsHy2Transport && !hyConn.IsUDPExtension { // is not hysteria2 and proxing UDP
 		return newError(hy2_transport.CanNotUseUdpExtension)
 	}
@@ -107,7 +112,7 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 			err = buf.CopyOnceTimeout(link.Reader, bodyWriter, proxy.FirstPayloadTimeout)
 			switch err {
 			case buf.ErrNotTimeoutReader, buf.ErrReadTimeout:
-				if err := connWriter.WriteHeader(); err != nil {
+				if err := connWriter.WriteTcpHeader(); err != nil {
 					return newError("failed to write request header").Base(err).AtWarning()
 				}
 			case nil:

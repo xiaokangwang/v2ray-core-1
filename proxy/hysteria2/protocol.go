@@ -8,23 +8,7 @@ import (
 	"github.com/apernet/quic-go/quicvarint"
 	"github.com/v2fly/v2ray-core/v5/common/buf"
 	"github.com/v2fly/v2ray-core/v5/common/net"
-	"github.com/v2fly/v2ray-core/v5/common/protocol"
 	hy2_transport "github.com/v2fly/v2ray-core/v5/transport/internet/hysteria2"
-)
-
-var (
-	crlf = []byte{'\r', '\n'}
-
-	addrParser = protocol.NewAddressParser(
-		protocol.AddressFamilyByte(0x01, net.AddressFamilyIPv4),
-		protocol.AddressFamilyByte(0x04, net.AddressFamilyIPv6),
-		protocol.AddressFamilyByte(0x03, net.AddressFamilyDomain),
-	)
-)
-
-const (
-	commandTCP byte = 1
-	commandUDP byte = 3
 )
 
 // ConnWriter is TCP Connection Writer Wrapper
@@ -38,7 +22,7 @@ type ConnWriter struct {
 // Write implements io.Writer
 func (c *ConnWriter) Write(p []byte) (n int, err error) {
 	if !c.TCPHeaderSent {
-		if err := c.writeHeader(); err != nil {
+		if err := c.writeTcpHeader(); err != nil {
 			return 0, newError("failed to write request header").Base(err)
 		}
 	}
@@ -61,9 +45,9 @@ func (c *ConnWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 	return nil
 }
 
-func (c *ConnWriter) WriteHeader() error {
+func (c *ConnWriter) WriteTcpHeader() error {
 	if !c.TCPHeaderSent {
-		if err := c.writeHeader(); err != nil {
+		if err := c.writeTcpHeader(); err != nil {
 			return err
 		}
 	}
@@ -74,7 +58,7 @@ func QuicLen(s int) int {
 	return int(quicvarint.Len(uint64(s)))
 }
 
-func (c *ConnWriter) writeHeader() error {
+func (c *ConnWriter) writeTcpHeader() error {
 	padding := "Jimmy Was Here"
 	paddingLen := len(padding)
 	addressAndPort := c.Target.Address.String() + ":" + c.Target.Port.String()
@@ -182,7 +166,10 @@ func (r *PacketReader) ReadMultiBuffer() (buf.MultiBuffer, error) {
 
 // ReadMultiBufferWithMetadata reads udp packet with destination
 func (r *PacketReader) ReadMultiBufferWithMetadata() (*PacketPayload, error) {
-	_, data, dest, _ := r.HyConn.ReadPacket()
+	_, data, dest, err := r.HyConn.ReadPacket()
+	if err != nil {
+		return nil, err
+	}
 	b := buf.FromBytes(data)
 	return &PacketPayload{Target: *dest, Buffer: buf.MultiBuffer{b}}, nil
 }
