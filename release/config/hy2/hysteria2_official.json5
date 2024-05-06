@@ -8,7 +8,7 @@
     "tag": "http",
     "protocol": "http"
   }, {
-    "port": 1280,
+    "port": 1443,
     "listen": "127.0.0.1",
     "tag": "hy2_in_bbr",
     "protocol": "hysteria2",
@@ -18,6 +18,7 @@
         "congestion": {
           "type": "bbr"
         },
+        "password": "your-password"
         "use_udp_extension": true
       },
       "security": "tls"
@@ -49,7 +50,7 @@
     "settings": {
       "server": [{
         "address": "127.0.0.1",
-        "port": 1280
+        "port": 1443
       }]
     },
     "streamSettings": {
@@ -57,9 +58,13 @@
       "transportSettings": {
         "congestion": {
           "type": "bbr"
-        }
+        },
+        "password": "your-password"
       },
-      "security": "tls"
+      "security": "tls",
+      "securitySettings": {
+        "allowInsecure": true
+      }
     }
   }],
   "routing": {
