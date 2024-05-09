@@ -52,6 +52,16 @@ func InitAddress(dest net.Destination) (net.Addr, error) {
 	return destAddr, nil
 }
 
+type connFactory struct {
+	hy_client.ConnFactory
+
+	NewFunc func(addr net.Addr) (net.PacketConn, error)
+}
+
+func (f *connFactory) New(addr net.Addr) (net.PacketConn, error) {
+	return f.NewFunc(addr)
+}
+
 func NewHyClient(dest net.Destination, streamSettings *internet.MemoryStreamConfig) (hy_client.Client, error) {
 	tlsConfig, err := InitTLSConifg(streamSettings)
 	if err != nil {
@@ -68,6 +78,18 @@ func NewHyClient(dest net.Destination, streamSettings *internet.MemoryStreamConf
 		TLSConfig:  *tlsConfig,
 		Auth:       config.GetPassword(),
 		ServerAddr: serverAddr,
+		ConnFactory: &connFactory{
+			NewFunc: func(addr net.Addr) (net.PacketConn, error) {
+				rawConn, err := internet.ListenSystemPacket(context.Background(), &net.UDPAddr{
+					IP:   []byte{0, 0, 0, 0},
+					Port: 0,
+				}, streamSettings.SocketSettings)
+				if err != nil {
+					return nil, err
+				}
+				return rawConn.(*net.UDPConn), nil
+			},
+		},
 	})
 	if err != nil {
 		return nil, err

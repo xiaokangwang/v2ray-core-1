@@ -81,7 +81,8 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 	}
 	hyConn, IsHy2Transport := iConn.(*hy2_transport.HyConn)
 
-	if !IsHy2Transport && !hyConn.IsUDPExtension { // is not hysteria2 and proxing UDP
+	if !IsHy2Transport && network == net.Network_UDP {
+		// hysteria2 need to use udp extension to proxy UDP.
 		return newError(hy2_transport.CanNotUseUdpExtension)
 	}
 

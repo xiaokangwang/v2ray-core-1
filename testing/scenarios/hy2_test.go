@@ -276,9 +276,9 @@ func testHysteria2Offical(t *testing.T, isUDP bool) {
 									Security: &protocol.SecurityConfig{
 										Type: protocol.SecurityType_NONE,
 									},
-									Congestion: &hy2_transport.Congestion{Type: "brutal", UpMbps: 100, DownMbps: 100},
-									UseUdpExtension:        true,
-									Password:   "password",
+									Congestion:      &hy2_transport.Congestion{Type: "brutal", UpMbps: 100, DownMbps: 100},
+									UseUdpExtension: true,
+									Password:        "password",
 								}),
 							},
 						},
@@ -321,7 +321,7 @@ func testHysteria2Offical(t *testing.T, isUDP bool) {
 	}
 }
 
-func TestHysteria2TCP(t *testing.T) {
+func TestHysteria2OnTCP(t *testing.T) {
 	tcpServer := tcp.Server{
 		MsgProcessor: xor,
 	}
