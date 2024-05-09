@@ -3,7 +3,7 @@ package hysteria2
 import (
 	"context"
 
-	hy_server "github.com/apernet/hysteria/core/server"
+	hyServer "github.com/apernet/hysteria/core/server"
 	"github.com/apernet/quic-go"
 	"github.com/apernet/quic-go/http3"
 
@@ -16,7 +16,7 @@ import (
 
 // Listener is an internet.Listener that listens for TCP connections.
 type Listener struct {
-	hyServer hy_server.Server
+	hyServer hyServer.Server
 	rawConn  net.PacketConn
 	addConn  internet.ConnHandler
 }
@@ -44,7 +44,7 @@ func (l *Listener) ProxyStreamHijacker(ft http3.FrameType,
 	return true, nil
 }
 
-func (l *Listener) UdpHijacker(entry *hy_server.UdpSessionEntry, originalAddr string) {
+func (l *Listener) UdpHijacker(entry *hyServer.UdpSessionEntry, originalAddr string) {
 	addr, err := net.ResolveUDPAddr("udp", originalAddr)
 	if err != nil {
 		return
@@ -82,7 +82,7 @@ func Listen(ctx context.Context, address net.Address, port net.Port,
 		addConn: handler,
 	}
 
-	hyServer, err := hy_server.NewServer(&hy_server.Config{
+	hyServer, err := hyServer.NewServer(&hyServer.Config{
 		Conn:                  rawConn,
 		TLSConfig:             *GetTLSConfig(streamSettings),
 		Authenticator:         &Authenticator{Password: config.GetPassword()},
@@ -111,7 +111,7 @@ func CheckTLSConfig(streamSettings *internet.MemoryStreamConfig, isClient bool) 
 	return tlsSetting
 }
 
-func GetTLSConfig(streamSettings *internet.MemoryStreamConfig) *hy_server.TLSConfig {
+func GetTLSConfig(streamSettings *internet.MemoryStreamConfig) *hyServer.TLSConfig {
 	tlsSetting := CheckTLSConfig(streamSettings, false)
 	if tlsSetting == nil {
 		tlsSetting = &tls.Config{
@@ -122,7 +122,7 @@ func GetTLSConfig(streamSettings *internet.MemoryStreamConfig) *hy_server.TLSCon
 			},
 		}
 	}
-	return &hy_server.TLSConfig{Certificates: tlsSetting.GetTLSConfig().Certificates}
+	return &hyServer.TLSConfig{Certificates: tlsSetting.GetTLSConfig().Certificates}
 }
 
 type Authenticator struct {

@@ -3,9 +3,9 @@ package hysteria2
 import (
 	"time"
 
-	hy_client "github.com/apernet/hysteria/core/client"
+	hyClient "github.com/apernet/hysteria/core/client"
 	"github.com/apernet/hysteria/core/international/protocol"
-	hy_server "github.com/apernet/hysteria/core/server"
+	hyServer "github.com/apernet/hysteria/core/server"
 	"github.com/apernet/quic-go"
 
 	"github.com/v2fly/v2ray-core/v5/common/buf"
@@ -17,8 +17,8 @@ const CanNotUseUdpExtension = "Only hysteria2 proxy protocol can use udpExtensio
 type HyConn struct {
 	IsUDPExtension   bool
 	IsServer         bool
-	ClientUDPSession hy_client.HyUDPConn
-	ServerUDPSession *hy_server.UdpSessionEntry
+	ClientUDPSession hyClient.HyUDPConn
+	ServerUDPSession *hyServer.UdpSessionEntry
 	Target           net.Destination
 
 	stream quic.Stream
