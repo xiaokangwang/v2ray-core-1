@@ -14,8 +14,8 @@ dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9/go.mod h1:H6x//7
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/FlowerWrong/water v0.0.0-20180301012659-01a4eaa1f6f2/go.mod h1:xrG5L7lq7T2DLnPr2frMnL906CNEoKRwLB+VYFhPq2w=
-github.com/JimmyHuang454/hysteria/core v0.0.0-20240510071018-cee008247828 h1:VjGcFN8xkTFDdHH/6oLtyYvJ8biz3Y7bBSP4ldZnKok=
-github.com/JimmyHuang454/hysteria/core v0.0.0-20240510071018-cee008247828/go.mod h1:M90Ik/hn3JaHS/oXmncvnEiIatdIhMNLvKHOqp9ap/M=
+github.com/JimmyHuang454/hysteria/core v0.0.0-20240511074602-b0840e28099e h1:inRDfo93TKP2xYXtSKIVMErrnUm8UuHFMyHXTxfvsBQ=
+github.com/JimmyHuang454/hysteria/core v0.0.0-20240511074602-b0840e28099e/go.mod h1:nzkbgafcTmrehm47Ncx1u/Ts0dfg4MuTKSeCVmFvLyk=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/adrg/xdg v0.4.0 h1:RzRqFcjH4nE5C6oTAxhBtoE2IRyjBSa62SCbyPidvls=
 github.com/adrg/xdg v0.4.0/go.mod h1:N6ag73EX4wyxeaoeHctc1mas01KZgsj5tYiAIwqJE/E=
