@@ -17,7 +17,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/proxy"
 	"github.com/v2fly/v2ray-core/v5/transport"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
-	hy2_transport "github.com/v2fly/v2ray-core/v5/transport/internet/hysteria2"
+	hyTransport "github.com/v2fly/v2ray-core/v5/transport/internet/hysteria2"
 )
 
 // Client is an inbound handler
@@ -79,11 +79,11 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 	if statConn, ok := conn.(*internet.StatCouterConnection); ok {
 		iConn = statConn.Connection // will not count the UDP traffic.
 	}
-	hyConn, IsHy2Transport := iConn.(*hy2_transport.HyConn)
+	hyConn, IsHy2Transport := iConn.(*hyTransport.HyConn)
 
 	if !IsHy2Transport && network == net.Network_UDP {
 		// hysteria2 need to use udp extension to proxy UDP.
-		return newError(hy2_transport.CanNotUseUdpExtension)
+		return newError(hyTransport.CanNotUseUdpExtension)
 	}
 
 	defer conn.Close()
@@ -113,7 +113,7 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 			err = buf.CopyOnceTimeout(link.Reader, bodyWriter, proxy.FirstPayloadTimeout)
 			switch err {
 			case buf.ErrNotTimeoutReader, buf.ErrReadTimeout:
-				if err := connWriter.WriteTcpHeader(); err != nil {
+				if err := connWriter.WriteTCPHeader(); err != nil {
 					return newError("failed to write request header").Base(err).AtWarning()
 				}
 			case nil:

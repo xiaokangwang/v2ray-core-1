@@ -3,7 +3,6 @@ package hysteria2
 import (
 	"context"
 	"io"
-	"strings"
 	"time"
 
 	hyProtocol "github.com/apernet/hysteria/core/international/protocol"
@@ -21,7 +20,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/features/policy"
 	"github.com/v2fly/v2ray-core/v5/features/routing"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
-	hy2_transport "github.com/v2fly/v2ray-core/v5/transport/internet/hysteria2"
+	hyTransport "github.com/v2fly/v2ray-core/v5/transport/internet/hysteria2"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/udp"
 )
 
@@ -73,14 +72,14 @@ func (s *Server) Process(ctx context.Context, network net.Network, conn internet
 	if statConn, ok := conn.(*internet.StatCouterConnection); ok {
 		iConn = statConn.Connection // will not count the UDP traffic.
 	}
-	hyConn, IsHy2Transport := iConn.(*hy2_transport.HyConn)
+	hyConn, IsHy2Transport := iConn.(*hyTransport.HyConn)
 
 	if IsHy2Transport && hyConn.IsUDPExtension {
 		network = net.Network_UDP
 	}
 
 	if !IsHy2Transport && network == net.Network_UDP {
-		return newError(hy2_transport.CanNotUseUdpExtension)
+		return newError(hyTransport.CanNotUseUdpExtension)
 	}
 
 	sessionPolicy := s.policyManager.ForLevel(0)
@@ -114,12 +113,15 @@ func (s *Server) Process(ctx context.Context, network net.Network, conn internet
 		return newError("failed to send response").Base(err)
 	}
 
-	address := strings.Split(reqAddr, ":")
-	port, err := net.PortFromString(address[1])
+	address, stringPort, err := net.SplitHostPort(reqAddr)
 	if err != nil {
 		return err
 	}
-	destination := net.Destination{Network: network, Address: net.ParseAddress(address[0]), Port: port}
+	port, err := net.PortFromString(stringPort)
+	if err != nil {
+		return err
+	}
+	destination := net.Destination{Network: network, Address: net.ParseAddress(address), Port: port}
 
 	inbound := session.InboundFromContext(ctx)
 	if inbound == nil {

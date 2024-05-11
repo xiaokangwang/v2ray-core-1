@@ -26,8 +26,8 @@ import (
 	"github.com/v2fly/v2ray-core/v5/testing/servers/udp"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/headers/http"
-	hy2_transport "github.com/v2fly/v2ray-core/v5/transport/internet/hysteria2"
-	tcptransport "github.com/v2fly/v2ray-core/v5/transport/internet/tcp"
+	hyTransport "github.com/v2fly/v2ray-core/v5/transport/internet/hysteria2"
+	tcpTransport "github.com/v2fly/v2ray-core/v5/transport/internet/tcp"
 )
 
 func TestVMessHysteria2Congestion(t *testing.T) {
@@ -62,11 +62,11 @@ func testVMessHysteria2(t *testing.T, congestionType string) {
 						TransportSettings: []*internet.TransportConfig{
 							{
 								ProtocolName: "hysteria2",
-								Settings: serial.ToTypedMessage(&hy2_transport.Config{
+								Settings: serial.ToTypedMessage(&hyTransport.Config{
 									Security: &protocol.SecurityConfig{
 										Type: protocol.SecurityType_NONE,
 									},
-									Congestion: &hy2_transport.Congestion{Type: congestionType, UpMbps: 100, DownMbps: 100},
+									Congestion: &hyTransport.Congestion{Type: congestionType, UpMbps: 100, DownMbps: 100},
 									Password:   "password",
 								}),
 							},
@@ -122,11 +122,11 @@ func testVMessHysteria2(t *testing.T, congestionType string) {
 						TransportSettings: []*internet.TransportConfig{
 							{
 								ProtocolName: "hysteria2",
-								Settings: serial.ToTypedMessage(&hy2_transport.Config{
+								Settings: serial.ToTypedMessage(&hyTransport.Config{
 									Security: &protocol.SecurityConfig{
 										Type: protocol.SecurityType_NONE,
 									},
-									Congestion: &hy2_transport.Congestion{Type: congestionType, UpMbps: 100, DownMbps: 100},
+									Congestion: &hyTransport.Congestion{Type: congestionType, UpMbps: 100, DownMbps: 100},
 									Password:   "password",
 								}),
 							},
@@ -214,11 +214,11 @@ func testHysteria2Offical(t *testing.T, isUDP bool) {
 						TransportSettings: []*internet.TransportConfig{
 							{
 								ProtocolName: "hysteria2",
-								Settings: serial.ToTypedMessage(&hy2_transport.Config{
+								Settings: serial.ToTypedMessage(&hyTransport.Config{
 									Security: &protocol.SecurityConfig{
 										Type: protocol.SecurityType_NONE,
 									},
-									Congestion:      &hy2_transport.Congestion{Type: "brutal", UpMbps: 100, DownMbps: 100},
+									Congestion:      &hyTransport.Congestion{Type: "brutal", UpMbps: 100, DownMbps: 100},
 									UseUdpExtension: true,
 									Password:        "password",
 								}),
@@ -272,11 +272,11 @@ func testHysteria2Offical(t *testing.T, isUDP bool) {
 						TransportSettings: []*internet.TransportConfig{
 							{
 								ProtocolName: "hysteria2",
-								Settings: serial.ToTypedMessage(&hy2_transport.Config{
+								Settings: serial.ToTypedMessage(&hyTransport.Config{
 									Security: &protocol.SecurityConfig{
 										Type: protocol.SecurityType_NONE,
 									},
-									Congestion:      &hy2_transport.Congestion{Type: "brutal", UpMbps: 100, DownMbps: 100},
+									Congestion:      &hyTransport.Congestion{Type: "brutal", UpMbps: 100, DownMbps: 100},
 									UseUdpExtension: true,
 									Password:        "password",
 								}),
@@ -345,7 +345,7 @@ func TestHysteria2OnTCP(t *testing.T) {
 						TransportSettings: []*internet.TransportConfig{
 							{
 								Protocol: internet.TransportProtocol_TCP,
-								Settings: serial.ToTypedMessage(&tcptransport.Config{
+								Settings: serial.ToTypedMessage(&tcpTransport.Config{
 									HeaderSettings: serial.ToTypedMessage(&http.Config{}),
 								}),
 							},
@@ -397,7 +397,7 @@ func TestHysteria2OnTCP(t *testing.T) {
 						TransportSettings: []*internet.TransportConfig{
 							{
 								Protocol: internet.TransportProtocol_TCP,
-								Settings: serial.ToTypedMessage(&tcptransport.Config{
+								Settings: serial.ToTypedMessage(&tcpTransport.Config{
 									HeaderSettings: serial.ToTypedMessage(&http.Config{}),
 								}),
 							},
