@@ -8,7 +8,7 @@ import (
 	"github.com/apernet/quic-go/quicvarint"
 	"github.com/v2fly/v2ray-core/v5/common/buf"
 	"github.com/v2fly/v2ray-core/v5/common/net"
-	hy2_transport "github.com/v2fly/v2ray-core/v5/transport/internet/hysteria2"
+	hyTransport "github.com/v2fly/v2ray-core/v5/transport/internet/hysteria2"
 )
 
 // ConnWriter is TCP Connection Writer Wrapper
@@ -22,7 +22,7 @@ type ConnWriter struct {
 // Write implements io.Writer
 func (c *ConnWriter) Write(p []byte) (n int, err error) {
 	if !c.TCPHeaderSent {
-		if err := c.writeTcpHeader(); err != nil {
+		if err := c.writeTCPHeader(); err != nil {
 			return 0, newError("failed to write request header").Base(err)
 		}
 	}
@@ -45,9 +45,9 @@ func (c *ConnWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 	return nil
 }
 
-func (c *ConnWriter) WriteTcpHeader() error {
+func (c *ConnWriter) WriteTCPHeader() error {
 	if !c.TCPHeaderSent {
-		if err := c.writeTcpHeader(); err != nil {
+		if err := c.writeTCPHeader(); err != nil {
 			return err
 		}
 	}
@@ -58,7 +58,7 @@ func QuicLen(s int) int {
 	return int(quicvarint.Len(uint64(s)))
 }
 
-func (c *ConnWriter) writeTcpHeader() error {
+func (c *ConnWriter) writeTCPHeader() error {
 	padding := "Jimmy Was Here"
 	paddingLen := len(padding)
 	addressAndPort := c.Target.Address.String() + ":" + c.Target.Port.String()
@@ -81,7 +81,7 @@ func (c *ConnWriter) writeTcpHeader() error {
 // PacketWriter UDP Connection Writer Wrapper
 type PacketWriter struct {
 	io.Writer
-	HyConn *hy2_transport.HyConn
+	HyConn *hyTransport.HyConn
 	Target net.Destination
 }
 
@@ -152,7 +152,7 @@ type PacketPayload struct {
 // PacketReader is UDP Connection Reader Wrapper
 type PacketReader struct {
 	io.Reader
-	HyConn *hy2_transport.HyConn
+	HyConn *hyTransport.HyConn
 }
 
 // ReadMultiBuffer implements buf.Reader
