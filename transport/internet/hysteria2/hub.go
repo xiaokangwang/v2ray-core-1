@@ -116,7 +116,7 @@ func CheckTLSConfig(streamSettings *internet.MemoryStreamConfig, isClient bool) 
 func GetServerTLSConfig(streamSettings *internet.MemoryStreamConfig) (*hyServer.TLSConfig, error) {
 	config := tls.ConfigFromStreamSettings(streamSettings)
 	if config == nil {
-		return nil, newError("need tls")
+		return nil, newError(Hy2MustNeedTLS)
 	}
 	tlsConfig := config.GetTLSConfig()
 

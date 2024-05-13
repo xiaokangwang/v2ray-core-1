@@ -13,6 +13,7 @@ import (
 )
 
 const CanNotUseUdpExtension = "Only hysteria2 proxy protocol can use udpExtension."
+const Hy2MustNeedTLS = "Hysteria2 based on QUIC that requires TLS."
 
 type HyConn struct {
 	IsUDPExtension   bool
