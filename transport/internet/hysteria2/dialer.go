@@ -16,7 +16,7 @@ import (
 
 var RunningClient map[net.Destination](hyClient.Client)
 
-func InitTLSConifg(streamSettings *internet.MemoryStreamConfig) (*hyClient.TLSConfig, error) {
+func InitTLSConifg2(streamSettings *internet.MemoryStreamConfig) (*hyClient.TLSConfig, error) {
 	tlsSetting := CheckTLSConfig(streamSettings, true)
 	if tlsSetting == nil {
 		tlsSetting = &tls.Config{
@@ -29,6 +29,21 @@ func InitTLSConifg(streamSettings *internet.MemoryStreamConfig) (*hyClient.TLSCo
 		InsecureSkipVerify: tlsSetting.AllowInsecure,
 	}
 	return res, nil
+}
+
+func GetClientTLSConfig(streamSettings *internet.MemoryStreamConfig) (*hyClient.TLSConfig, error) {
+	config := tls.ConfigFromStreamSettings(streamSettings)
+	if config == nil {
+		return nil, newError("need tls")
+	}
+	tlsConfig := config.GetTLSConfig()
+
+	return &hyClient.TLSConfig{
+		RootCAs:               tlsConfig.RootCAs,
+		ServerName:            tlsConfig.ServerName,
+		InsecureSkipVerify:    tlsConfig.InsecureSkipVerify,
+		VerifyPeerCertificate: tlsConfig.VerifyPeerCertificate,
+	}, nil
 }
 
 func InitAddress(dest net.Destination) (net.Addr, error) {
@@ -59,7 +74,7 @@ func (f *connFactory) New(addr net.Addr) (net.PacketConn, error) {
 }
 
 func NewHyClient(dest net.Destination, streamSettings *internet.MemoryStreamConfig) (hyClient.Client, error) {
-	tlsConfig, err := InitTLSConifg(streamSettings)
+	tlsConfig, err := GetClientTLSConfig(streamSettings)
 	if err != nil {
 		return nil, err
 	}

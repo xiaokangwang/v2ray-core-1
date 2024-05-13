@@ -14,6 +14,7 @@ import (
 	clog "github.com/v2fly/v2ray-core/v5/common/log"
 	"github.com/v2fly/v2ray-core/v5/common/net"
 	"github.com/v2fly/v2ray-core/v5/common/protocol"
+	"github.com/v2fly/v2ray-core/v5/common/protocol/tls/cert"
 	"github.com/v2fly/v2ray-core/v5/common/serial"
 	"github.com/v2fly/v2ray-core/v5/common/uuid"
 	"github.com/v2fly/v2ray-core/v5/proxy/dokodemo"
@@ -28,6 +29,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/transport/internet/headers/http"
 	hyTransport "github.com/v2fly/v2ray-core/v5/transport/internet/hysteria2"
 	tcpTransport "github.com/v2fly/v2ray-core/v5/transport/internet/tcp"
+	"github.com/v2fly/v2ray-core/v5/transport/internet/tls"
 )
 
 func TestVMessHysteria2Congestion(t *testing.T) {
@@ -57,15 +59,21 @@ func testVMessHysteria2(t *testing.T, congestionType string) {
 				ReceiverSettings: serial.ToTypedMessage(&proxyman.ReceiverConfig{
 					PortRange: net.SinglePortRange(serverPort),
 					Listen:    net.NewIPOrDomain(net.LocalHostIP),
+
 					StreamSettings: &internet.StreamConfig{
 						ProtocolName: "hysteria2",
+						SecurityType: serial.GetMessageType(&tls.Config{}),
+						SecuritySettings: []*anypb.Any{
+							serial.ToTypedMessage(
+								&tls.Config{
+									Certificate: []*tls.Certificate{tls.ParseCertificate(cert.MustGenerate(nil))},
+								},
+							),
+						},
 						TransportSettings: []*internet.TransportConfig{
 							{
 								ProtocolName: "hysteria2",
 								Settings: serial.ToTypedMessage(&hyTransport.Config{
-									Security: &protocol.SecurityConfig{
-										Type: protocol.SecurityType_NONE,
-									},
 									Congestion: &hyTransport.Congestion{Type: congestionType, UpMbps: 100, DownMbps: 100},
 									Password:   "password",
 								}),
@@ -119,13 +127,19 @@ func testVMessHysteria2(t *testing.T, congestionType string) {
 				SenderSettings: serial.ToTypedMessage(&proxyman.SenderConfig{
 					StreamSettings: &internet.StreamConfig{
 						ProtocolName: "hysteria2",
+						SecurityType: serial.GetMessageType(&tls.Config{}),
+						SecuritySettings: []*anypb.Any{
+							serial.ToTypedMessage(
+								&tls.Config{
+									ServerName:    "www.v2fly.org",
+									AllowInsecure: true,
+								},
+							),
+						},
 						TransportSettings: []*internet.TransportConfig{
 							{
 								ProtocolName: "hysteria2",
 								Settings: serial.ToTypedMessage(&hyTransport.Config{
-									Security: &protocol.SecurityConfig{
-										Type: protocol.SecurityType_NONE,
-									},
 									Congestion: &hyTransport.Congestion{Type: congestionType, UpMbps: 100, DownMbps: 100},
 									Password:   "password",
 								}),
@@ -144,7 +158,7 @@ func testVMessHysteria2(t *testing.T, congestionType string) {
 										Id:      userID.String(),
 										AlterId: 0,
 										SecuritySettings: &protocol.SecurityConfig{
-											Type: protocol.SecurityType_AES128_GCM,
+											Type: protocol.SecurityType_NONE,
 										},
 									}),
 								},
@@ -211,13 +225,18 @@ func testHysteria2Offical(t *testing.T, isUDP bool) {
 					Listen:    net.NewIPOrDomain(net.LocalHostIP),
 					StreamSettings: &internet.StreamConfig{
 						ProtocolName: "hysteria2",
+						SecurityType: serial.GetMessageType(&tls.Config{}),
+						SecuritySettings: []*anypb.Any{
+							serial.ToTypedMessage(
+								&tls.Config{
+									Certificate: []*tls.Certificate{tls.ParseCertificate(cert.MustGenerate(nil))},
+								},
+							),
+						},
 						TransportSettings: []*internet.TransportConfig{
 							{
 								ProtocolName: "hysteria2",
 								Settings: serial.ToTypedMessage(&hyTransport.Config{
-									Security: &protocol.SecurityConfig{
-										Type: protocol.SecurityType_NONE,
-									},
 									Congestion:      &hyTransport.Congestion{Type: "brutal", UpMbps: 100, DownMbps: 100},
 									UseUdpExtension: true,
 									Password:        "password",
@@ -269,13 +288,19 @@ func testHysteria2Offical(t *testing.T, isUDP bool) {
 				SenderSettings: serial.ToTypedMessage(&proxyman.SenderConfig{
 					StreamSettings: &internet.StreamConfig{
 						ProtocolName: "hysteria2",
+						SecurityType: serial.GetMessageType(&tls.Config{}),
+						SecuritySettings: []*anypb.Any{
+							serial.ToTypedMessage(
+								&tls.Config{
+									ServerName:    "www.v2fly.org",
+									AllowInsecure: true,
+								},
+							),
+						},
 						TransportSettings: []*internet.TransportConfig{
 							{
 								ProtocolName: "hysteria2",
 								Settings: serial.ToTypedMessage(&hyTransport.Config{
-									Security: &protocol.SecurityConfig{
-										Type: protocol.SecurityType_NONE,
-									},
 									Congestion:      &hyTransport.Congestion{Type: "brutal", UpMbps: 100, DownMbps: 100},
 									UseUdpExtension: true,
 									Password:        "password",
@@ -342,6 +367,14 @@ func TestHysteria2OnTCP(t *testing.T) {
 					PortRange: net.SinglePortRange(serverPort),
 					Listen:    net.NewIPOrDomain(net.LocalHostIP),
 					StreamSettings: &internet.StreamConfig{
+						SecurityType: serial.GetMessageType(&tls.Config{}),
+						SecuritySettings: []*anypb.Any{
+							serial.ToTypedMessage(
+								&tls.Config{
+									Certificate: []*tls.Certificate{tls.ParseCertificate(cert.MustGenerate(nil))},
+								},
+							),
+						},
 						TransportSettings: []*internet.TransportConfig{
 							{
 								Protocol: internet.TransportProtocol_TCP,
@@ -394,6 +427,15 @@ func TestHysteria2OnTCP(t *testing.T) {
 			{
 				SenderSettings: serial.ToTypedMessage(&proxyman.SenderConfig{
 					StreamSettings: &internet.StreamConfig{
+						SecurityType: serial.GetMessageType(&tls.Config{}),
+						SecuritySettings: []*anypb.Any{
+							serial.ToTypedMessage(
+								&tls.Config{
+									ServerName:    "www.v2fly.org",
+									AllowInsecure: true,
+								},
+							),
+						},
 						TransportSettings: []*internet.TransportConfig{
 							{
 								Protocol: internet.TransportProtocol_TCP,

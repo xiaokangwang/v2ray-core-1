@@ -9,7 +9,6 @@ import (
 
 	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/net"
-	"github.com/v2fly/v2ray-core/v5/common/protocol/tls/cert"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/tls"
 )
@@ -60,9 +59,12 @@ func (l *Listener) UdpHijacker(entry *hyServer.UdpSessionEntry, originalAddr str
 }
 
 // Listen creates a new Listener based on configurations.
-func Listen(ctx context.Context, address net.Address, port net.Port,
-	streamSettings *internet.MemoryStreamConfig,
-	handler internet.ConnHandler) (internet.Listener, error) {
+func Listen(ctx context.Context, address net.Address, port net.Port, streamSettings *internet.MemoryStreamConfig, handler internet.ConnHandler) (internet.Listener, error) {
+	tlsConfig, err := GetServerTLSConfig(streamSettings)
+	if err != nil {
+		return nil, err
+	}
+
 	if address.Family().IsDomain() {
 		return nil, nil
 	}
@@ -84,7 +86,7 @@ func Listen(ctx context.Context, address net.Address, port net.Port,
 
 	hyServer, err := hyServer.NewServer(&hyServer.Config{
 		Conn:                  rawConn,
-		TLSConfig:             *GetTLSConfig(streamSettings),
+		TLSConfig:             *tlsConfig,
 		Authenticator:         &Authenticator{Password: config.GetPassword()},
 		IgnoreClientBandwidth: config.GetIgnoreClientBandwidth(),
 		DisableUDP:            !config.GetUseUdpExtension(),
@@ -111,18 +113,14 @@ func CheckTLSConfig(streamSettings *internet.MemoryStreamConfig, isClient bool) 
 	return tlsSetting
 }
 
-func GetTLSConfig(streamSettings *internet.MemoryStreamConfig) *hyServer.TLSConfig {
-	tlsSetting := CheckTLSConfig(streamSettings, false)
-	if tlsSetting == nil {
-		tlsSetting = &tls.Config{
-			Certificate: []*tls.Certificate{
-				tls.ParseCertificate(
-					cert.MustGenerate(nil, cert.DNSNames(internalDomain), cert.CommonName(internalDomain)),
-				),
-			},
-		}
+func GetServerTLSConfig(streamSettings *internet.MemoryStreamConfig) (*hyServer.TLSConfig, error) {
+	config := tls.ConfigFromStreamSettings(streamSettings)
+	if config == nil {
+		return nil, newError("need tls")
 	}
-	return &hyServer.TLSConfig{Certificates: tlsSetting.GetTLSConfig().Certificates}
+	tlsConfig := config.GetTLSConfig()
+
+	return &hyServer.TLSConfig{Certificates: tlsConfig.Certificates, GetCertificate: tlsConfig.GetCertificate}, nil
 }
 
 type Authenticator struct {
