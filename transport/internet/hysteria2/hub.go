@@ -30,8 +30,7 @@ func (l *Listener) Close() error {
 	return l.hyServer.Close()
 }
 
-func (l *Listener) ProxyStreamHijacker(ft http3.FrameType,
-	conn quic.Connection, stream quic.Stream, err error) (bool, error) {
+func (l *Listener) StreamHijacker(ft http3.FrameType, conn quic.Connection, stream quic.Stream, err error) (bool, error) {
 	// err always == nil
 
 	tcpConn := &HyConn{
@@ -90,8 +89,8 @@ func Listen(ctx context.Context, address net.Address, port net.Port, streamSetti
 		Authenticator:         &Authenticator{Password: config.GetPassword()},
 		IgnoreClientBandwidth: config.GetIgnoreClientBandwidth(),
 		DisableUDP:            !config.GetUseUdpExtension(),
-		StreamHijacker:        listener.ProxyStreamHijacker, // acceptStreams
-		UdpSessionHijacker:    listener.UdpHijacker,         // acceptUDPSession
+		StreamHijacker:        listener.StreamHijacker, // acceptStreams
+		UdpSessionHijacker:    listener.UdpHijacker,    // acceptUDPSession
 	})
 	if err != nil {
 		return nil, err
@@ -100,17 +99,6 @@ func Listen(ctx context.Context, address net.Address, port net.Port, streamSetti
 	listener.hyServer = hyServer
 	go hyServer.Serve()
 	return listener, nil
-}
-
-func CheckTLSConfig(streamSettings *internet.MemoryStreamConfig, isClient bool) *tls.Config {
-	if streamSettings == nil || streamSettings.SecuritySettings == nil {
-		return nil
-	}
-	tlsSetting := streamSettings.SecuritySettings.(*tls.Config)
-	if tlsSetting.ServerName == "" || (len(tlsSetting.Certificate) == 0 && !isClient) {
-		return nil
-	}
-	return tlsSetting
 }
 
 func GetServerTLSConfig(streamSettings *internet.MemoryStreamConfig) (*hyServer.TLSConfig, error) {
