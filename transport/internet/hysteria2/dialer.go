@@ -3,8 +3,8 @@ package hysteria2
 import (
 	"context"
 
-	hyClient "github.com/apernet/hysteria/core/client"
-	hyProtocol "github.com/apernet/hysteria/core/international/protocol"
+	hyClient "github.com/apernet/hysteria/core/v2/client"
+	hyProtocol "github.com/apernet/hysteria/core/v2/international/protocol"
 	"github.com/apernet/quic-go/quicvarint"
 
 	"github.com/v2fly/v2ray-core/v5/common"
