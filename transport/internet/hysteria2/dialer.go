@@ -15,7 +15,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/transport/internet/tls"
 )
 
-var RunningClient map[net.Destination](hyClient.Client)
+var RunningClient map[net.Addr](hyClient.Client)
 var ClientMutex sync.Mutex
 
 func GetClientTLSConfig(streamSettings *internet.MemoryStreamConfig) (*hyClient.TLSConfig, error) {
@@ -33,7 +33,7 @@ func GetClientTLSConfig(streamSettings *internet.MemoryStreamConfig) (*hyClient.
 	}, nil
 }
 
-func InitAddress(dest net.Destination) (net.Addr, error) {
+func ResolveAdress(dest net.Destination) (net.Addr, error) {
 	var destAddr *net.UDPAddr
 	if dest.Address.Family().IsIP() {
 		destAddr = &net.UDPAddr{
@@ -60,13 +60,8 @@ func (f *connFactory) New(addr net.Addr) (net.PacketConn, error) {
 	return f.NewFunc(addr)
 }
 
-func NewHyClient(dest net.Destination, streamSettings *internet.MemoryStreamConfig) (hyClient.Client, error) {
+func NewHyClient(serverAddr net.Addr, streamSettings *internet.MemoryStreamConfig) (hyClient.Client, error) {
 	tlsConfig, err := GetClientTLSConfig(streamSettings)
-	if err != nil {
-		return nil, err
-	}
-
-	serverAddr, err := InitAddress(dest)
 	if err != nil {
 		return nil, err
 	}
@@ -96,42 +91,63 @@ func NewHyClient(dest net.Destination, streamSettings *internet.MemoryStreamConf
 	return client, nil
 }
 
-func CloseHyClient(dest net.Destination) error {
+func CloseHyClient(serverAddr net.Addr) error {
 	ClientMutex.Lock()
 	defer ClientMutex.Unlock()
 
-	client, found := RunningClient[dest]
+	client, found := RunningClient[serverAddr]
 	if found {
-		delete(RunningClient, dest)
+		delete(RunningClient, serverAddr)
 		return client.Close()
 	}
 	return nil
 }
 
-func GetHyClient(dest net.Destination, streamSettings *internet.MemoryStreamConfig) (hyClient.Client, error) {
-	ClientMutex.Lock()
-	defer ClientMutex.Unlock()
-
-	var client hyClient.Client
+func GetHyClient(serverAddr net.Addr, streamSettings *internet.MemoryStreamConfig) (hyClient.Client, error) {
 	var err error
-	client, found := RunningClient[dest]
-	if !found {
-		// TODO: Clean idle connections
-		client, err = NewHyClient(dest, streamSettings)
+	var client hyClient.Client
+
+	ClientMutex.Lock()
+	client, found := RunningClient[serverAddr]
+	ClientMutex.Unlock()
+	if !found || !CheckHyClentHealthy(client) {
+		if found {
+			// retry
+			CloseHyClient(serverAddr)
+		}
+		client, err = NewHyClient(serverAddr, streamSettings)
 		if err != nil {
 			return nil, err
 		}
-		RunningClient[dest] = client
+		ClientMutex.Lock()
+		RunningClient[serverAddr] = client
+		ClientMutex.Unlock()
 	}
 	return client, nil
+}
+
+func CheckHyClentHealthy(client hyClient.Client) bool {
+	// TODO: Clean idle connections
+	quicConn := client.GetQuicConn()
+	select {
+	case <-quicConn.Context().Done():
+		return false
+	default:
+	}
+	return true
 }
 
 func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (internet.Connection, error) {
 	config := streamSettings.ProtocolSettings.(*Config)
 
-	client, err := GetHyClient(dest, streamSettings)
+	serverAddr, err := ResolveAdress(dest)
 	if err != nil {
-		CloseHyClient(dest)
+		return nil, err
+	}
+
+	client, err := GetHyClient(serverAddr, streamSettings)
+	if err != nil {
+		CloseHyClient(serverAddr)
 		return nil, err
 	}
 
@@ -153,7 +169,7 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 		conn.IsServer = false
 		conn.ClientUDPSession, err = client.UDP()
 		if err != nil {
-			CloseHyClient(dest)
+			CloseHyClient(serverAddr)
 			return nil, err
 		}
 		return conn, nil
@@ -161,7 +177,7 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 
 	conn.stream, err = client.OpenStream()
 	if err != nil {
-		CloseHyClient(dest)
+		CloseHyClient(serverAddr)
 		return nil, err
 	}
 
@@ -174,6 +190,6 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 }
 
 func init() {
-	RunningClient = make(map[net.Destination]hyClient.Client)
+	RunningClient = make(map[net.Addr]hyClient.Client)
 	common.Must(internet.RegisterTransportDialer(protocolName, Dial))
 }
