@@ -39,7 +39,7 @@ require (
 	golang.org/x/sync v0.7.0
 	golang.org/x/sys v0.20.0
 	google.golang.org/grpc v1.63.2
-	google.golang.org/protobuf v1.34.0
+	google.golang.org/protobuf v1.34.1
 	gopkg.in/yaml.v3 v3.0.1
 	gvisor.dev/gvisor v0.0.0-20231020174304-b8a429915ff1
 	h12.io/socks v1.0.3
@@ -90,6 +90,6 @@ require (
 
 replace github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40 => github.com/xiaokangwang/struc v0.0.0-20231031203518-0e381172f248
 
-replace github.com/apernet/hysteria/core/v2 v2.4.5 => github.com/JimmyHuang454/hysteria/core/v2 v2.0.0-20240605063419-3717f44ca98d
+replace github.com/apernet/hysteria/core/v2 v2.4.5 => github.com/JimmyHuang454/hysteria/core/v2 v2.0.0-20240621174944-4c4ba8b7f163
 
 //replace github.com/apernet/hysteria/core/v2 => ../hysteria/core/
