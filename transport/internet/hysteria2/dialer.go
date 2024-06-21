@@ -33,7 +33,7 @@ func GetClientTLSConfig(streamSettings *internet.MemoryStreamConfig) (*hyClient.
 	}, nil
 }
 
-func ResolveAdress(dest net.Destination) (net.Addr, error) {
+func ResolveAddress(dest net.Destination) (net.Addr, error) {
 	var destAddr *net.UDPAddr
 	if dest.Address.Family().IsIP() {
 		destAddr = &net.UDPAddr{
@@ -129,6 +129,9 @@ func GetHyClient(serverAddr net.Addr, streamSettings *internet.MemoryStreamConfi
 func CheckHyClentHealthy(client hyClient.Client) bool {
 	// TODO: Clean idle connections
 	quicConn := client.GetQuicConn()
+	if quicConn == nil {
+		return false
+	}
 	select {
 	case <-quicConn.Context().Done():
 		return false
@@ -140,7 +143,7 @@ func CheckHyClentHealthy(client hyClient.Client) bool {
 func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (internet.Connection, error) {
 	config := streamSettings.ProtocolSettings.(*Config)
 
-	serverAddr, err := ResolveAdress(dest)
+	serverAddr, err := ResolveAddress(dest)
 	if err != nil {
 		return nil, err
 	}
