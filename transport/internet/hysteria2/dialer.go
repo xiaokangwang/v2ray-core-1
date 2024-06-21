@@ -2,6 +2,7 @@ package hysteria2
 
 import (
 	"context"
+	"sync"
 
 	hyClient "github.com/apernet/hysteria/core/v2/client"
 	hyProtocol "github.com/apernet/hysteria/core/v2/international/protocol"
@@ -15,6 +16,7 @@ import (
 )
 
 var RunningClient map[net.Destination](hyClient.Client)
+var ClientMutex sync.Mutex
 
 func GetClientTLSConfig(streamSettings *internet.MemoryStreamConfig) (*hyClient.TLSConfig, error) {
 	config := tls.ConfigFromStreamSettings(streamSettings)
@@ -91,11 +93,13 @@ func NewHyClient(dest net.Destination, streamSettings *internet.MemoryStreamConf
 		return nil, err
 	}
 
-	RunningClient[dest] = client
 	return client, nil
 }
 
 func CloseHyClient(dest net.Destination) error {
+	ClientMutex.Lock()
+	defer ClientMutex.Unlock()
+
 	client, found := RunningClient[dest]
 	if found {
 		delete(RunningClient, dest)
@@ -104,8 +108,9 @@ func CloseHyClient(dest net.Destination) error {
 	return nil
 }
 
-func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (internet.Connection, error) {
-	config := streamSettings.ProtocolSettings.(*Config)
+func GetHyClient(dest net.Destination, streamSettings *internet.MemoryStreamConfig) (hyClient.Client, error) {
+	ClientMutex.Lock()
+	defer ClientMutex.Unlock()
 
 	var client hyClient.Client
 	var err error
@@ -116,6 +121,18 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 		if err != nil {
 			return nil, err
 		}
+		RunningClient[dest] = client
+	}
+	return client, nil
+}
+
+func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (internet.Connection, error) {
+	config := streamSettings.ProtocolSettings.(*Config)
+
+	client, err := GetHyClient(dest, streamSettings)
+	if err != nil {
+		CloseHyClient(dest)
+		return nil, err
 	}
 
 	quicConn := client.GetQuicConn()
