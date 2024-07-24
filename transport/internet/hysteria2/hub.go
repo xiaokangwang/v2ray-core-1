@@ -89,7 +89,7 @@ func Listen(ctx context.Context, address net.Address, port net.Port, streamSetti
 		DisableUDP:            !config.GetUseUdpExtension(),
 		Authenticator:         &Authenticator{Password: config.GetPassword()},
 		StreamHijacker:        listener.StreamHijacker, // acceptStreams
-		BandwidthConfig:       hyServer.BandwidthConfig{MaxTx: config.Congestion.GetUpMbps() * M, MaxRx: config.GetCongestion().GetDownMbps() * M},
+		BandwidthConfig:       hyServer.BandwidthConfig{MaxTx: config.Congestion.GetUpMbps() * Mbps, MaxRx: config.GetCongestion().GetDownMbps() * Mbps},
 		UdpSessionHijacker:    listener.UdpHijacker, // acceptUDPSession
 		IgnoreClientBandwidth: config.GetIgnoreClientBandwidth(),
 	})
