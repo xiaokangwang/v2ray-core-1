@@ -86,11 +86,12 @@ func Listen(ctx context.Context, address net.Address, port net.Port, streamSetti
 	hyServer, err := hyServer.NewServer(&hyServer.Config{
 		Conn:                  rawConn,
 		TLSConfig:             *tlsConfig,
-		Authenticator:         &Authenticator{Password: config.GetPassword()},
-		IgnoreClientBandwidth: config.GetIgnoreClientBandwidth(),
 		DisableUDP:            !config.GetUseUdpExtension(),
+		Authenticator:         &Authenticator{Password: config.GetPassword()},
 		StreamHijacker:        listener.StreamHijacker, // acceptStreams
-		UdpSessionHijacker:    listener.UdpHijacker,    // acceptUDPSession
+		BandwidthConfig:       hyServer.BandwidthConfig{MaxTx: config.Congestion.GetUpMbps() * M, MaxRx: config.GetCongestion().GetDownMbps() * M},
+		UdpSessionHijacker:    listener.UdpHijacker, // acceptUDPSession
+		IgnoreClientBandwidth: config.GetIgnoreClientBandwidth(),
 	})
 	if err != nil {
 		return nil, err

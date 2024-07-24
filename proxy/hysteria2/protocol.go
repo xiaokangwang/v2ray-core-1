@@ -61,7 +61,7 @@ func QuicLen(s int) int {
 func (c *ConnWriter) writeTCPHeader() error {
 	padding := "Jimmy Was Here"
 	paddingLen := len(padding)
-	addressAndPort := c.Target.Address.String() + ":" + c.Target.Port.String()
+	addressAndPort := c.Target.NetAddr()
 	addressLen := len(addressAndPort)
 	size := QuicLen(addressLen) + addressLen + QuicLen(paddingLen) + paddingLen
 

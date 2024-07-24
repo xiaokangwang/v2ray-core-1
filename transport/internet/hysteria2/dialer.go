@@ -17,6 +17,7 @@ import (
 
 var RunningClient map[net.Addr](hyClient.Client)
 var ClientMutex sync.Mutex
+var M uint64 = 1000000
 
 func GetClientTLSConfig(streamSettings *internet.MemoryStreamConfig) (*hyClient.TLSConfig, error) {
 	config := tls.ConfigFromStreamSettings(streamSettings)
@@ -68,8 +69,8 @@ func NewHyClient(serverAddr net.Addr, streamSettings *internet.MemoryStreamConfi
 
 	config := streamSettings.ProtocolSettings.(*Config)
 	client, _, err := hyClient.NewClient(&hyClient.Config{
-		TLSConfig:  *tlsConfig,
 		Auth:       config.GetPassword(),
+		TLSConfig:  *tlsConfig,
 		ServerAddr: serverAddr,
 		ConnFactory: &connFactory{
 			NewFunc: func(addr net.Addr) (net.PacketConn, error) {
@@ -83,6 +84,7 @@ func NewHyClient(serverAddr net.Addr, streamSettings *internet.MemoryStreamConfi
 				return rawConn.(*net.UDPConn), nil
 			},
 		},
+		BandwidthConfig: hyClient.BandwidthConfig{MaxTx: config.Congestion.GetUpMbps() * M, MaxRx: config.GetCongestion().GetDownMbps() * M},
 	})
 	if err != nil {
 		return nil, err
@@ -110,7 +112,7 @@ func GetHyClient(serverAddr net.Addr, streamSettings *internet.MemoryStreamConfi
 	ClientMutex.Lock()
 	client, found := RunningClient[serverAddr]
 	ClientMutex.Unlock()
-	if !found || !CheckHyClentHealthy(client) {
+	if !found || !CheckHyClientHealthy(client) {
 		if found {
 			// retry
 			CloseHyClient(serverAddr)
@@ -126,8 +128,7 @@ func GetHyClient(serverAddr net.Addr, streamSettings *internet.MemoryStreamConfi
 	return client, nil
 }
 
-func CheckHyClentHealthy(client hyClient.Client) bool {
-	// TODO: Clean idle connections
+func CheckHyClientHealthy(client hyClient.Client) bool {
 	quicConn := client.GetQuicConn()
 	if quicConn == nil {
 		return false
