@@ -17,7 +17,7 @@ import (
 
 var RunningClient map[net.Addr](hyClient.Client)
 var ClientMutex sync.Mutex
-var M uint64 = 1000000
+var MBps uint64 = 1000000 / 8 // MByte
 
 func GetClientTLSConfig(streamSettings *internet.MemoryStreamConfig) (*hyClient.TLSConfig, error) {
 	config := tls.ConfigFromStreamSettings(streamSettings)
@@ -84,7 +84,7 @@ func NewHyClient(serverAddr net.Addr, streamSettings *internet.MemoryStreamConfi
 				return rawConn.(*net.UDPConn), nil
 			},
 		},
-		BandwidthConfig: hyClient.BandwidthConfig{MaxTx: config.Congestion.GetUpMbps() * M, MaxRx: config.GetCongestion().GetDownMbps() * M},
+		BandwidthConfig: hyClient.BandwidthConfig{MaxTx: config.Congestion.GetUpMbps() * MBps, MaxRx: config.GetCongestion().GetDownMbps() * MBps},
 	})
 	if err != nil {
 		return nil, err
