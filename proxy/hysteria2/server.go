@@ -33,28 +33,14 @@ func init() {
 // Server is an inbound connection handler that handles messages in protocol.
 type Server struct {
 	policyManager  policy.Manager
-	validator      *Validator
 	packetEncoding packetaddr.PacketAddrType
 }
 
 // NewServer creates a new inbound handler.
 func NewServer(ctx context.Context, config *ServerConfig) (*Server, error) {
-	validator := new(Validator)
-	for _, user := range config.Users {
-		u, err := user.ToMemoryUser()
-		if err != nil {
-			return nil, newError("failed to get user").Base(err).AtError()
-		}
-
-		if err := validator.Add(u); err != nil {
-			return nil, newError("failed to add user").Base(err).AtError()
-		}
-	}
-
 	v := core.MustFromContext(ctx)
 	server := &Server{
 		policyManager: v.GetFeature(policy.ManagerType()).(policy.Manager),
-		validator:     validator,
 	}
 	return server, nil
 }
