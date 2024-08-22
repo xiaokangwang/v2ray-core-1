@@ -59,11 +59,17 @@ func QuicLen(s int) int {
 }
 
 func (c *ConnWriter) writeTCPHeader() error {
+	c.TCPHeaderSent = true
+
 	padding := "Jimmy Was Here"
 	paddingLen := len(padding)
 	addressAndPort := c.Target.NetAddr()
 	addressLen := len(addressAndPort)
 	size := QuicLen(addressLen) + addressLen + QuicLen(paddingLen) + paddingLen
+
+	if size > hyProtocol.MaxAddressLength+hyProtocol.MaxPaddingLength {
+		return newError("invalid header length")
+	}
 
 	buf := make([]byte, size)
 	i := hyProtocol.VarintPut(buf, uint64(addressLen))
@@ -72,9 +78,6 @@ func (c *ConnWriter) writeTCPHeader() error {
 	copy(buf[i:], padding)
 
 	_, err := c.Writer.Write(buf)
-	if err == nil {
-		c.TCPHeaderSent = true
-	}
 	return err
 }
 
