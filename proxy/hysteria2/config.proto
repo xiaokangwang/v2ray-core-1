@@ -10,13 +10,8 @@ import "common/protocol/user.proto";
 import "common/protocol/server_spec.proto";
 import "common/protoext/extensions.proto";
 
-message OBFS {
-  string type = 1;
-  string password = 2;
-}
 
 message Account {
-  OBFS obfs = 1;
 }
 
 message ClientConfig {
