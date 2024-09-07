@@ -24,6 +24,4 @@ message ClientConfig {
 message ServerConfig {
   option (v2ray.core.common.protoext.message_opt).type = "inbound";
   option (v2ray.core.common.protoext.message_opt).short_name = "hysteria2";
-
-  repeated v2ray.core.common.protocol.User users = 1;
 }
