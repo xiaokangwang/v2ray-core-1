@@ -73,15 +73,5 @@ type Hysteria2ServerConfig struct {
 // Build implements Buildable
 func (c *Hysteria2ServerConfig) Build() (proto.Message, error) {
 	config := new(hysteria2.ServerConfig)
-	config.Users = make([]*protocol.User, len(c.Clients))
-	for idx, rawUser := range c.Clients {
-		user := new(protocol.User)
-		account := &hysteria2.Account{}
-
-		user.Email = rawUser.Email
-		user.Level = uint32(rawUser.Level)
-		user.Account = serial.ToTypedMessage(account)
-		config.Users[idx] = user
-	}
 	return config, nil
 }
