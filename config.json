@@ -1,0 +1,39 @@
+{
+  "log": {
+    "error": {
+      "level": "Debug",
+      "type": "Console"
+    },
+    "access": {
+      "type": "None"
+    }
+  },
+  "inbounds": [
+    {
+      "port": 10293,
+      "listen": "127.0.0.1",
+      "protocol": "vmess",
+      "settings": {
+        "users": [
+          "39a6f375-ca28-4112-ad32-26de9d0a2977"
+        ]
+      },
+      "streamSettings": {
+        "transport": "#v2ray.core.transport.internet.tlsmirror.server.Config",
+        "transportSettings": {
+          "forward_tag": "direct",
+          "forward_port": 443,
+          "forward_address": "doubleclick.net"
+        }
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "direct",
+      "protocol": "freedom",
+      "settings": {
+      }
+    }
+  ]
+}
