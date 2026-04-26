@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package v2ray.core.common.sendas;
+option csharp_namespace = "V2Ray.Core.Common.Sendas";
+option go_package = "github.com/v2fly/v2ray-core/v5/common/sendas";
+option java_package = "com.v2ray.core.common.sendas";
+option java_multiple_files = true;
+
+enum Method {
+  FAIL = 0;
+  RAW = 1;
+  RAW_ETHERNET = 2;
+}
+
+message Config {
+  string interface = 1;
+  Method method = 2;
+}
